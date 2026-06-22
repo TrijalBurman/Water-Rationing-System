@@ -11,3 +11,25 @@ Planned responsibilities:
 - Detect leak/anomaly conditions.
 - Publish solenoid valve commands.
 - Expose API endpoints for dashboard and testing.
+
+## Run Locally
+
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+Useful endpoints:
+
+- `GET /health`
+- `POST /telemetry`
+- `GET /status`
+- `GET /readings`
+- `POST /commands/valve`
+- `POST /demo/reset`
+
+Run tests:
+
+```bash
+pytest
+```

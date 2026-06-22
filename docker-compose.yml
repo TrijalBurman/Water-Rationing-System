@@ -1,0 +1,63 @@
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: water-mqtt
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: water-influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: water-rationing-admin
+      DOCKER_INFLUXDB_INIT_ORG: water-rationing
+      DOCKER_INFLUXDB_INIT_BUCKET: telemetry
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: water-rationing-token
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+
+  backend:
+    build:
+      context: ./backend
+    container_name: water-backend
+    depends_on:
+      - mqtt
+      - influxdb
+    ports:
+      - "8000:8000"
+    environment:
+      ENVIRONMENT: docker
+      MQTT_HOST: mqtt
+      MQTT_PORT: 1883
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_TOKEN: water-rationing-token
+      INFLUX_ORG: water-rationing
+      INFLUX_BUCKET: telemetry
+      CRITICAL_TTD_HOURS: 4
+      WARNING_TTD_HOURS: 12
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: water-grafana
+    depends_on:
+      - influxdb
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+
+volumes:
+  influxdb-data:
+  grafana-data:

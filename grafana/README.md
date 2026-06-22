@@ -9,3 +9,8 @@ Planned panels:
 - Predicted time-to-depletion.
 - System mode: normal, warning, critical, rationing.
 - Leak or anomaly alerts.
+
+## Provisioning
+
+Grafana provisioning files are stored in `grafana/provisioning`.
+The dashboard is loaded automatically when the Docker Compose stack starts.

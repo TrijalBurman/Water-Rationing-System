@@ -1,0 +1,64 @@
+import argparse
+import json
+import random
+import time
+from datetime import datetime, timezone
+
+import paho.mqtt.client as mqtt
+
+
+def build_reading(level: float, scenario: str) -> dict:
+    flow = 2.0 + random.uniform(-0.15, 0.15)
+    downstream = flow
+
+    if scenario == "leak":
+        downstream = flow * 0.72
+
+    return {
+        "device_id": "esp32-simulator",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "tank_level_percent": round(max(level, 0), 2),
+        "flow_lpm": round(flow, 2),
+        "downstream_flow_lpm": round(downstream, 2),
+        "temperature_c": 36.0 if scenario == "shortage" else 29.0,
+        "humidity_percent": 45.0,
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Publish demo telemetry over MQTT.")
+    parser.add_argument("--host", default="localhost")
+    parser.add_argument("--port", type=int, default=1883)
+    parser.add_argument("--topic", default="water/telemetry")
+    parser.add_argument("--scenario", choices=["normal", "shortage", "leak"], default="normal")
+    parser.add_argument("--interval", type=float, default=2.0)
+    args = parser.parse_args()
+
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client.connect(args.host, args.port, keepalive=60)
+    client.loop_start()
+
+    level = 85.0
+    try:
+        while True:
+            if args.scenario == "normal":
+                level += random.uniform(-0.1, 0.1)
+            elif args.scenario == "shortage":
+                level -= random.uniform(1.4, 2.3)
+            elif args.scenario == "leak":
+                level -= random.uniform(0.2, 0.5)
+
+            level = min(max(level, 0), 100)
+            reading = build_reading(level, args.scenario)
+            client.publish(args.topic, json.dumps(reading), qos=1)
+            print(reading, flush=True)
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        client.loop_stop()
+        client.disconnect()
+
+
+if __name__ == "__main__":
+    main()

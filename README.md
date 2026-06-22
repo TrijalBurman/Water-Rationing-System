@@ -12,6 +12,40 @@ through a solenoid valve.
 - `grafana/` - Dashboard provisioning and visualization assets.
 - `docs/` - Project plan, architecture notes, demo script, and report material.
 
+## Local Development
+
+Start the full local stack:
+
+```bash
+docker compose up --build
+```
+
+Services:
+
+- FastAPI: http://localhost:8000
+- API docs: http://localhost:8000/docs
+- Grafana: http://localhost:3000
+- InfluxDB: http://localhost:8086
+- MQTT broker: `localhost:1883`
+
+Grafana login:
+
+- Username: `admin`
+- Password: `admin`
+
+Publish simulated telemetry:
+
+```bash
+cd backend
+pip install -r requirements.txt
+python -m app.simulator --scenario normal
+python -m app.simulator --scenario shortage
+python -m app.simulator --scenario leak
+```
+
+Use `normal` for baseline operation, `shortage` to reduce tank level quickly, and
+`leak` to create a flow difference between upstream and downstream sensors.
+
 ## Team Branches
 
 - `main` - stable integration branch.
