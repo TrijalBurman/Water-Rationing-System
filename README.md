@@ -1,8 +1,8 @@
-# AI Water Level Monitoring and Rationing System
+# Water Rationing System
 
-Final-year project for an IoT-based water management system that monitors tank
-level and flow rate, predicts water depletion, detects anomalies, and triggers
-automated rationing through a solenoid valve.
+An IoT-based water management system that monitors tank level and flow rate,
+predicts water depletion, detects anomalies, and triggers automated rationing
+through a solenoid valve.
 
 ## Core Modules
 
