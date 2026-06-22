@@ -1,3 +1,5 @@
+name: water-rationing-system
+
 services:
   mqtt:
     image: eclipse-mosquitto:2
