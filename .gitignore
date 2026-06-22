@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Node / frontend tooling
+node_modules/
+dist/
+build/
+
+# IDE / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Logs and runtime data
+*.log
+data/
+
+# Embedded / firmware build outputs
+.pio/
+*.elf
+*.bin
+*.hex
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
