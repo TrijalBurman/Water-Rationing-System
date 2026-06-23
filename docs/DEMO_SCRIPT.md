@@ -20,6 +20,12 @@ cd backend
 python -m app.simulator --scenario normal
 ```
 
+On Windows, you can also run from the repository root:
+
+```powershell
+.\scripts\demo.ps1 -Scenario normal -Seconds 30
+```
+
 Expected result:
 
 - Tank level remains stable.
@@ -33,6 +39,12 @@ Stop the simulator and run:
 
 ```bash
 python -m app.simulator --scenario shortage
+```
+
+Or:
+
+```powershell
+.\scripts\demo.ps1 -Scenario shortage -Seconds 30
 ```
 
 Expected result:
@@ -49,6 +61,12 @@ Stop the simulator and run:
 
 ```bash
 python -m app.simulator --scenario leak
+```
+
+Or:
+
+```powershell
+.\scripts\demo.ps1 -Scenario leak -Seconds 30
 ```
 
 Expected result:

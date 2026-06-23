@@ -43,6 +43,12 @@ python -m app.simulator --scenario shortage
 python -m app.simulator --scenario leak
 ```
 
+Or from the repository root on Windows:
+
+```powershell
+.\scripts\demo.ps1 -Scenario shortage -Seconds 30
+```
+
 Use `normal` for baseline operation, `shortage` to reduce tank level quickly, and
 `leak` to create a flow difference between upstream and downstream sensors.
 
@@ -56,3 +62,5 @@ Use `normal` for baseline operation, `shortage` to reduce tank level quickly, an
 
 Each member should work on their own branch and open a pull request into `main`
 when their changes are ready.
+
+See `docs/TEAM_WORKFLOW.md` for daily start, stop, push, and pull request steps.

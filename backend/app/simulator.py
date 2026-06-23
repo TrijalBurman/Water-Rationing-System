@@ -2,12 +2,12 @@ import argparse
 import json
 import random
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import paho.mqtt.client as mqtt
 
 
-def build_reading(level: float, scenario: str) -> dict:
+def build_reading(level: float, scenario: str, timestamp: datetime) -> dict:
     flow = 2.0 + random.uniform(-0.15, 0.15)
     downstream = flow
 
@@ -16,7 +16,7 @@ def build_reading(level: float, scenario: str) -> dict:
 
     return {
         "device_id": "esp32-simulator",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": timestamp.isoformat(),
         "tank_level_percent": round(max(level, 0), 2),
         "flow_lpm": round(flow, 2),
         "downstream_flow_lpm": round(downstream, 2),
@@ -32,6 +32,12 @@ def main() -> None:
     parser.add_argument("--topic", default="water/telemetry")
     parser.add_argument("--scenario", choices=["normal", "shortage", "leak"], default="normal")
     parser.add_argument("--interval", type=float, default=2.0)
+    parser.add_argument(
+        "--sample-minutes",
+        type=float,
+        default=30.0,
+        help="Virtual minutes between telemetry samples. Keeps quick demos realistic.",
+    )
     args = parser.parse_args()
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
@@ -39,19 +45,21 @@ def main() -> None:
     client.loop_start()
 
     level = 85.0
+    sample_time = datetime.now(timezone.utc)
     try:
         while True:
             if args.scenario == "normal":
                 level += random.uniform(-0.1, 0.1)
             elif args.scenario == "shortage":
-                level -= random.uniform(1.4, 2.3)
+                level -= random.uniform(5.0, 8.0)
             elif args.scenario == "leak":
-                level -= random.uniform(0.2, 0.5)
+                level -= random.uniform(0.05, 0.15)
 
             level = min(max(level, 0), 100)
-            reading = build_reading(level, args.scenario)
+            reading = build_reading(level, args.scenario, sample_time)
             client.publish(args.topic, json.dumps(reading), qos=1)
             print(reading, flush=True)
+            sample_time += timedelta(minutes=args.sample_minutes)
             time.sleep(args.interval)
     except KeyboardInterrupt:
         pass

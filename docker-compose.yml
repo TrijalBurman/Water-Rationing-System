@@ -9,6 +9,11 @@ services:
       - "9001:9001"
     volumes:
       - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/broker/version' -C 1 -W 5 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
   influxdb:
     image: influxdb:2.7
@@ -24,14 +29,21 @@ services:
       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: water-rationing-token
     volumes:
       - influxdb-data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
   backend:
     build:
       context: ./backend
     container_name: water-backend
     depends_on:
-      - mqtt
-      - influxdb
+      mqtt:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
     ports:
       - "8000:8000"
     environment:
@@ -44,12 +56,18 @@ services:
       INFLUX_BUCKET: telemetry
       CRITICAL_TTD_HOURS: 4
       WARNING_TTD_HOURS: 12
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5).read()\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
   grafana:
     image: grafana/grafana:11.4.0
     container_name: water-grafana
     depends_on:
-      - influxdb
+      influxdb:
+        condition: service_healthy
     ports:
       - "3000:3000"
     environment:
@@ -59,6 +77,11 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
 volumes:
   influxdb-data:
