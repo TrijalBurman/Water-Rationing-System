@@ -17,21 +17,15 @@ if (-not (Test-Path $python)) {
     throw "Virtual environment not found. Run: python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt"
 }
 
-Write-Host "Publishing '$Scenario' telemetry for $Seconds seconds..."
+$samples = [Math]::Max(2, $Seconds)
+Write-Host "Publishing '$Scenario' telemetry with $samples samples..."
 
-$job = Start-Job -ScriptBlock {
-    param($BackendDir, $PythonPath, $ScenarioName, $SampleMinutesValue)
-    Set-Location $BackendDir
-    & $PythonPath -m app.simulator --scenario $ScenarioName --interval 1 --sample-minutes $SampleMinutesValue
-} -ArgumentList $backendDir, $python, $Scenario, $SampleMinutes
-
+Push-Location $backendDir
 try {
-    Start-Sleep -Seconds $Seconds
+    & $python -m app.simulator --scenario $Scenario --interval 0.25 --sample-minutes $SampleMinutes --samples $samples --end-at-now
 }
 finally {
-    Stop-Job $job -ErrorAction SilentlyContinue
-    Receive-Job $job -ErrorAction SilentlyContinue
-    Remove-Job $job -ErrorAction SilentlyContinue
+    Pop-Location
 }
 
 Write-Host "Current backend status:"

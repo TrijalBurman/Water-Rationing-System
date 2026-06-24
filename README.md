@@ -50,7 +50,9 @@ Or from the repository root on Windows:
 ```
 
 Use `normal` for baseline operation, `shortage` to reduce tank level quickly, and
-`leak` to create a flow difference between upstream and downstream sensors.
+`leak` to create a flow difference between upstream and downstream sensors. The
+PowerShell helper publishes a compact historical sample window so Grafana's
+default "Last 30 minutes" range shows the demo clearly.
 
 ## Team Branches
 

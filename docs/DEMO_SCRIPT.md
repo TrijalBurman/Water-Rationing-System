@@ -26,6 +26,9 @@ On Windows, you can also run from the repository root:
 .\scripts\demo.ps1 -Scenario normal -Seconds 30
 ```
 
+The PowerShell helper publishes a fixed batch of readings that ends near the
+current time, so Grafana's "Last 30 minutes" range shows the whole demo.
+
 Expected result:
 
 - Tank level remains stable.

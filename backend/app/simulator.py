@@ -38,6 +38,17 @@ def main() -> None:
         default=30.0,
         help="Virtual minutes between telemetry samples. Keeps quick demos realistic.",
     )
+    parser.add_argument(
+        "--samples",
+        type=int,
+        default=0,
+        help="Number of samples to publish. Use 0 to publish until stopped.",
+    )
+    parser.add_argument(
+        "--end-at-now",
+        action="store_true",
+        help="For fixed sample runs, backdate the first sample so the final sample is near now.",
+    )
     args = parser.parse_args()
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
@@ -46,8 +57,15 @@ def main() -> None:
 
     level = 85.0
     sample_time = datetime.now(timezone.utc)
+    if args.end_at_now and args.samples > 1:
+        sample_time -= timedelta(minutes=args.sample_minutes * (args.samples - 1))
+
+    published = 0
     try:
         while True:
+            if args.samples and published >= args.samples:
+                break
+
             if args.scenario == "normal":
                 level += random.uniform(-0.1, 0.1)
             elif args.scenario == "shortage":
@@ -60,6 +78,7 @@ def main() -> None:
             client.publish(args.topic, json.dumps(reading), qos=1)
             print(reading, flush=True)
             sample_time += timedelta(minutes=args.sample_minutes)
+            published += 1
             time.sleep(args.interval)
     except KeyboardInterrupt:
         pass
