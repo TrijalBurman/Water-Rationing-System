@@ -1,0 +1,1240 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "name": "Pipeline Leak Events",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "water-influx"
+        },
+        "enable": true,
+        "iconColor": "red",
+        "target": {
+          "query": "from(bucket: v.defaultBucket) |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r._field == \"leak_detected\" and r._value == true)"
+        }
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "title": "Live Real-Time Status Banner",
+      "type": "row"
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Central Tank Mode",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/ and r._field == \"mode_code\") |> group() |> sort(columns: [\"_time\"]) |> last()",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 26
+        },
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "NORMAL",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "WARNING",
+                  "color": "orange"
+                },
+                "2": {
+                  "text": "RATIONING",
+                  "color": "semi-dark-orange"
+                },
+                "3": {
+                  "text": "CRITICAL",
+                  "color": "red"
+                },
+                "4": {
+                  "text": "RECOVERY",
+                  "color": "blue"
+                },
+                "5": {
+                  "text": "SENSOR_FAULT",
+                  "color": "purple"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Flat 101 Branch Status",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 5,
+        "y": 1
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/ and r._field == \"flat_status_code\") |> group() |> sort(columns: [\"_time\"]) |> last()",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 26
+        },
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "OK",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "SUSPECTED LEAK",
+                  "color": "orange"
+                },
+                "2": {
+                  "text": "LEAK ALERT",
+                  "color": "dark-red"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Ultrasonic Air Gap",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 10,
+        "y": 1
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/ and r._field == \"ultrasonic_distance_cm\") |> group() |> sort(columns: [\"_time\"]) |> last()",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 28
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "Sensor Gap",
+          "unit": "suffix: cm",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Detected Leak Differential (\u0394Q)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 14,
+        "y": 1
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/ and r._field == \"leak_rate_lpm\") |> group() |> sort(columns: [\"_time\"]) |> last()",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 28
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "\u0394Q Leak",
+          "unit": "flowlpm",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.15
+              },
+              {
+                "color": "red",
+                "value": 0.3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Solenoid Valve Position",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 19,
+        "y": 1
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/ and r._field == \"commanded_valve_percent\") |> group() |> sort(columns: [\"_time\"]) |> last()",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 28
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "Valve %",
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 75
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 101,
+      "title": "Historical Level Instances & Depletion Forecast Gauges",
+      "type": "row"
+    },
+    {
+      "id": 5,
+      "type": "gauge",
+      "title": "Time to Protected Reserve Across Level Checkpoints",
+      "description": "Displays ETA when reserve was at 80%, 50%, 25%, 10%, etc. (Use Operating Phase filter above to select specific gauge or view all)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: -2h) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/ and r.mode =~ /^${mode:regex}$/ and r.mode != \"LEAK_ALERT\") |> filter(fn: (r) => r._field == \"eta_minutes\" or r._field == \"level_percent\") |> pivot(rowKey: [\"_time\", \"mode\"], columnKey: [\"_field\"], valueColumn: \"_value\") |> group(columns: [\"mode\"]) |> sort(columns: [\"_time\"]) |> last(column: \"eta_minutes\") |> map(fn: (r) => ({ _time: r._time, _field: r.mode + \" (Level \" + string(v: int(v: r.level_percent)) + \"%)\", _value: r.eta_minutes })) |> keep(columns: [\"_time\", \"_field\", \"_value\"]) |> group(columns: [\"_field\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m",
+          "min": 0,
+          "max": 240,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "green",
+                "value": 60
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 6,
+      "type": "gauge",
+      "title": "Tank Water Level at Operating Checkpoints (%)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: -2h) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/ and r.mode =~ /^${mode:regex}$/ and r.mode != \"LEAK_ALERT\") |> filter(fn: (r) => r._field == \"level_percent\") |> group(columns: [\"mode\"]) |> sort(columns: [\"_time\"]) |> last() |> map(fn: (r) => ({ _time: r._time, _field: r.mode + \" Level\", _value: r._value })) |> keep(columns: [\"_time\", \"_field\", \"_value\"]) |> group(columns: [\"_field\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 40
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 7,
+      "type": "gauge",
+      "title": "Flow Rate at Operating Checkpoints (L/min)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: -2h) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/ and r.mode =~ /^${mode:regex}$/ and r.mode != \"LEAK_ALERT\") |> filter(fn: (r) => r._field == \"flow_lpm\") |> group(columns: [\"mode\"]) |> sort(columns: [\"_time\"]) |> last() |> map(fn: (r) => ({ _time: r._time, _field: r.mode + \" Flow\", _value: r._value })) |> keep(columns: [\"_time\", \"_field\", \"_value\"]) |> group(columns: [\"_field\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "flowlpm",
+          "min": 0,
+          "max": 5,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2.0
+              },
+              {
+                "color": "red",
+                "value": 3.5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "id": 102,
+      "title": "Checkpoints Audit Table & Trends",
+      "type": "row"
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Historical Level & Depletion Audit Table",
+      "description": "Summary of water metrics across all instances when tank level passed 80%, 50%, 25%, 10%, etc.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: -2h) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/ and r.mode =~ /^${mode:regex}$/ and r.mode != \"LEAK_ALERT\") |> filter(fn: (r) => r._field == \"level_percent\" or r._field == \"volume_l\" or r._field == \"flow_lpm\" or r._field == \"flow_out_lpm\" or r._field == \"eta_minutes\" or r._field == \"commanded_valve_percent\") |> pivot(rowKey: [\"_time\", \"mode\"], columnKey: [\"_field\"], valueColumn: \"_value\") |> group(columns: [\"mode\"]) |> last(column: \"level_percent\") |> group() |> sort(columns: [\"level_percent\"], desc: true) |> keep(columns: [\"_time\", \"mode\", \"level_percent\", \"volume_l\", \"flow_lpm\", \"flow_out_lpm\", \"commanded_valve_percent\", \"eta_minutes\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "_time"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Timestamp"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mode"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Operating Phase"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "level_percent"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Tank Level (%)"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "volume_l"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Volume (Litres)"
+              },
+              {
+                "id": "unit",
+                "value": "liter"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flow_lpm"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Inflow Qin (L/min)"
+              },
+              {
+                "id": "unit",
+                "value": "flowlpm"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flow_out_lpm"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Outflow Qout (L/min)"
+              },
+              {
+                "id": "unit",
+                "value": "flowlpm"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "commanded_valve_percent"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Valve %"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "eta_minutes"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Depletion ETA (min)"
+              },
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Tank Water Level (%) & Volume (L)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/) |> filter(fn: (r) => r._field == \"level_percent\" or r._field == \"volume_l\") |> keep(columns: [\"_time\", \"_value\", \"_field\"]) |> group(columns: [\"_field\"]) |> sort(columns: [\"_time\"])",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 15,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 10
+              },
+              {
+                "color": "green",
+                "value": 25
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "level_percent"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Water Level (%)"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "left"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Level (%)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "volume_l"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Volume (Litres)"
+              },
+              {
+                "id": "unit",
+                "value": "liter"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Volume (L)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Dual Flow Balance (Qin vs Qout) & Valve Actuation",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/) |> filter(fn: (r) => r._field == \"flow_lpm\" or r._field == \"flow_out_lpm\" or r._field == \"leak_rate_lpm\" or r._field == \"commanded_valve_percent\") |> keep(columns: [\"_time\", \"_value\", \"_field\"]) |> group(columns: [\"_field\"]) |> sort(columns: [\"_time\"])",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 12,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flow_lpm"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Inflow Qin (Source)"
+              },
+              {
+                "id": "unit",
+                "value": "flowlpm"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "left"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Flow (L/min)"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flow_out_lpm"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Outflow Qout (Consumer)"
+              },
+              {
+                "id": "unit",
+                "value": "flowlpm"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "left"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "cyan",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "leak_rate_lpm"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Leak Differential (\u0394Q)"
+              },
+              {
+                "id": "unit",
+                "value": "flowlpm"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "left"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 3
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "commanded_valve_percent"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Valve Position (%)"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Valve %"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    4,
+                    4
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 39
+      },
+      "id": 103,
+      "title": "History & Depletion Trajectory",
+      "type": "row"
+    },
+    {
+      "id": 11,
+      "type": "state-timeline",
+      "title": "Operating Mode State Timeline",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/ and r._field == \"mode_code\") |> keep(columns: [\"_time\", \"_value\"]) |> group() |> sort(columns: [\"_time\"])",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showValue": "always",
+        "mergeValues": true,
+        "rowHeight": 0.8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "Operating Mode",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "NORMAL",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "WARNING",
+                  "color": "orange"
+                },
+                "2": {
+                  "text": "RATIONING",
+                  "color": "semi-dark-orange"
+                },
+                "3": {
+                  "text": "CRITICAL",
+                  "color": "red"
+                },
+                "4": {
+                  "text": "RECOVERY",
+                  "color": "blue"
+                },
+                "5": {
+                  "text": "SENSOR_FAULT",
+                  "color": "purple"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Time-to-Depletion Forecast Trend",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "water-influx"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "targets": [
+        {
+          "query": "from(bucket: v.defaultBucket) |> range(start: v.timeRangeStart) |> filter(fn: (r) => r._measurement == \"water_telemetry\" and r.device_id =~ /^${device_id:regex}$/) |> filter(fn: (r) => r._field == \"eta_minutes\") |> keep(columns: [\"_time\", \"_value\", \"_field\"]) |> group(columns: [\"_field\"]) |> sort(columns: [\"_time\"])",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "min",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "Depletion ETA",
+          "unit": "m",
+          "custom": {
+            "fillOpacity": 15,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "green",
+                "value": 60
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": [
+    "water",
+    "rationing",
+    "iot",
+    "leak-detection",
+    "checkpoints"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "water-influx"
+        },
+        "definition": "import \"influxdata/influxdb/v1\" v1.tagValues(bucket: v.defaultBucket, tag: \"device_id\")",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Tank / Device",
+        "multi": true,
+        "name": "device_id",
+        "options": [],
+        "query": "import \"influxdata/influxdb/v1\" v1.tagValues(bucket: v.defaultBucket, tag: \"device_id\")",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Operating Phase / Gauge Selector",
+        "multi": true,
+        "name": "mode",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "NORMAL (80-100% Level)",
+            "value": "NORMAL"
+          },
+          {
+            "selected": false,
+            "text": "WARNING (40-60% Level)",
+            "value": "WARNING"
+          },
+          {
+            "selected": false,
+            "text": "RATIONING (20-40% Level)",
+            "value": "RATIONING"
+          },
+          {
+            "selected": false,
+            "text": "CRITICAL (<10% Reserve)",
+            "value": "CRITICAL"
+          }
+        ],
+        "query": "NORMAL, WARNING, RATIONING, CRITICAL",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Smart Water Rationing",
+  "uid": "smart-water-rationing",
+  "version": 5
+}

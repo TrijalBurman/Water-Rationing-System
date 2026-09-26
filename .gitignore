@@ -35,3 +35,11 @@ data/
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# Mosquitto credentials and data
+mosquitto/config/passwords*
+mosquitto/data/
+mosquitto/log/
+
+# Hardware / firmware local configuration
+firmware/**/config.h

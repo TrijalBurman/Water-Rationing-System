@@ -1,1 +1,2 @@
-"""Water Rationing System backend package."""
+"""Smart water rationing backend."""
+

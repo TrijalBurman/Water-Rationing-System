@@ -1,88 +1,74 @@
-name: water-rationing-system
-
 services:
-  mqtt:
-    image: eclipse-mosquitto:2
-    container_name: water-mqtt
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    restart: unless-stopped
     ports:
       - "1883:1883"
-      - "9001:9001"
     volumes:
-      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-    healthcheck:
-      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/broker/version' -C 1 -W 5 || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
+      - ./mosquitto/config:/mosquitto/config
+      - mosquitto-data:/mosquitto/data
 
   influxdb:
     image: influxdb:2.7
-    container_name: water-influxdb
+    restart: unless-stopped
     ports:
       - "8086:8086"
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
-      DOCKER_INFLUXDB_INIT_USERNAME: admin
-      DOCKER_INFLUXDB_INIT_PASSWORD: water-rationing-admin
-      DOCKER_INFLUXDB_INIT_ORG: water-rationing
-      DOCKER_INFLUXDB_INIT_BUCKET: telemetry
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: water-rationing-token
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_USERNAME}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN}
     volumes:
       - influxdb-data:/var/lib/influxdb2
-    healthcheck:
-      test: ["CMD", "influx", "ping"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
 
-  backend:
-    build:
-      context: ./backend
-    container_name: water-backend
+  api:
+    build: ./backend
+    restart: unless-stopped
     depends_on:
-      mqtt:
-        condition: service_healthy
-      influxdb:
-        condition: service_healthy
+      - mosquitto
+      - influxdb
     ports:
       - "8000:8000"
     environment:
-      ENVIRONMENT: docker
-      MQTT_HOST: mqtt
-      MQTT_PORT: 1883
-      INFLUX_URL: http://influxdb:8086
-      INFLUX_TOKEN: water-rationing-token
-      INFLUX_ORG: water-rationing
-      INFLUX_BUCKET: telemetry
-      CRITICAL_TTD_HOURS: 4
-      WARNING_TTD_HOURS: 12
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5).read()\""]
-      interval: 15s
-      timeout: 10s
-      retries: 5
+      MQTT_HOST: mosquitto
+      MQTT_PORT: "1883"
+      MQTT_USERNAME: ${MQTT_USERNAME}
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
+      INFLUXDB_ORG: ${INFLUXDB_ORG}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET}
+      TANK_CAPACITY_L: "200"
+      MIN_SAFE_PERCENT: "10"
+      WARNING_ETA_MINUTES: "120"
+      RATIONING_ETA_MINUTES: "60"
+    volumes:
+      - ./backend/app:/app/app
 
   grafana:
     image: grafana/grafana:11.4.0
-    container_name: water-grafana
+    restart: unless-stopped
     depends_on:
-      influxdb:
-        condition: service_healthy
+      - influxdb
     ports:
       - "3000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_USERS_DEFAULT_THEME: dark
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: ${INFLUXDB_TOKEN}
+      INFLUXDB_ORG: ${INFLUXDB_ORG}
+      INFLUXDB_BUCKET: ${INFLUXDB_BUCKET}
     volumes:
-      - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
 
 volumes:
+  mosquitto-data:
   influxdb-data:
   grafana-data:
+
