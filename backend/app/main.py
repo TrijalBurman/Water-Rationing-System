@@ -1,13 +1,17 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse
 
 from .controller import RationingController
 from .influx_store import InfluxStore
 from .mqtt_bridge import MqttBridge
 from .schemas import Decision, Health, Telemetry
 from .settings import get_settings
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 settings = get_settings()
@@ -48,6 +52,17 @@ def ingest(telemetry: Telemetry) -> Decision:
     if bridge.connected:
         bridge.publish_command(decision)
     return decision
+@app.get("/", response_class=FileResponse)
+def portal_root():
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    return HTMLResponse("<h1>Smart Water Rationing API</h1><p>API is running. See <a href='/docs'>/docs</a>.</p>")
+
+
+@app.get("/portal", response_class=FileResponse)
+def portal_page():
+    return portal_root()
 
 
 @app.get("/devices/{device_id}/latest")

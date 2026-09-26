@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Water Management & Rationing Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.02); }
+    }
+    .water-fill {
+      transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
+
+  <!-- Top Navigation -->
+  <header class="bg-slate-800/90 border-b border-slate-700/80 sticky top-0 z-50 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="bg-cyan-500/20 text-cyan-400 p-2 rounded-lg border border-cyan-500/30">
+          <i class="fa-solid fa-faucet-drip text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-white tracking-wide">HydroSentinel IoT</h1>
+          <p class="text-xs text-slate-400">Smart Water Rationing & Dual-Flow Leak Mitigation</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-4">
+        <div id="connectionBadge" class="flex items-center space-x-2 text-xs bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 px-3 py-1.5 rounded-full font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span>System Online</span>
+        </div>
+        <a href="http://localhost:3000" target="_blank" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-600 transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-chart-line text-orange-400"></i>
+          <span>Grafana</span>
+        </a>
+        <a href="/docs" target="_blank" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-600 transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-code text-cyan-400"></i>
+          <span>API Docs</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Active Alert / Status Banner -->
+    <div id="alertBanner" class="p-4 rounded-xl border bg-slate-800/80 border-slate-700 flex items-start space-x-3 transition-all duration-300">
+      <div id="alertIcon" class="mt-0.5 text-cyan-400 text-lg">
+        <i class="fa-solid fa-circle-info"></i>
+      </div>
+      <div class="flex-1">
+        <div class="flex items-center justify-between">
+          <h3 id="alertTitle" class="text-sm font-semibold text-white">System Status: Monitoring</h3>
+          <span id="alertPriority" class="text-xs uppercase px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-bold tracking-wider">Normal</span>
+        </div>
+        <p id="alertReason" class="text-xs text-slate-300 mt-1 leading-relaxed">Continuous telemetry polling active. Dual-flow sensors and JSN-SR04T probe report nominal conditions.</p>
+      </div>
+    </div>
+
+    <!-- Main Grid: Tank & Dual Flow Metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+
+      <!-- Tank Visual Card (Span 1) -->
+      <div class="bg-slate-800/60 border border-slate-700/70 rounded-2xl p-5 flex flex-col justify-between items-center relative overflow-hidden">
+        <div class="w-full flex justify-between items-center mb-3">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Storage Tank Level</span>
+          <span id="sensorHealthTag" class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">JSN-SR04T OK</span>
+        </div>
+
+        <!-- Animated Water Tank Container -->
+        <div class="w-36 h-48 border-4 border-slate-600 rounded-b-2xl relative overflow-hidden bg-slate-900/80 shadow-inner flex flex-col justify-end">
+          <!-- Standoff / Blind Zone Indicator -->
+          <div class="absolute top-0 inset-x-0 h-8 border-b border-dashed border-red-500/40 bg-red-950/20 flex items-center justify-center">
+            <span class="text-[9px] text-red-400/80 font-mono">25cm Blind Zone</span>
+          </div>
+          <!-- Water Fill -->
+          <div id="tankFill" class="water-fill w-full bg-gradient-to-t from-cyan-600 to-blue-400 relative" style="height: 80%;">
+            <div class="absolute inset-x-0 top-0 h-2 bg-white/30"></div>
+          </div>
+          <!-- Center Percentage Readout -->
+          <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none drop-shadow">
+            <span id="tankPercentText" class="text-3xl font-extrabold text-white">80%</span>
+            <span id="tankVolumeText" class="text-xs text-slate-200 font-medium">160.0 / 200 L</span>
+          </div>
+        </div>
+
+        <div class="w-full mt-4 flex justify-between text-xs text-slate-400 border-t border-slate-700/60 pt-3">
+          <span>Reserve: <strong class="text-slate-200">20 L (10%)</strong></span>
+          <span>Echo: <strong id="echoDistanceText" class="text-slate-200">32.0 cm</strong></span>
+        </div>
+      </div>
+
+      <!-- Center Metrics (Span 2) -->
+      <div class="md:col-span-2 space-y-6">
+
+        <!-- Dual-Flow Mass Conservation Card -->
+        <div class="bg-slate-800/60 border border-slate-700/70 rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-sm font-semibold text-white">Dual-Flow Mass Balance</h2>
+              <p class="text-xs text-slate-400">Upstream vs Downstream volumetric differential</p>
+            </div>
+            <div id="leakStateBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1.5">
+              <i class="fa-solid fa-check"></i>
+              <span>Pipeline Sealed</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-4 text-center">
+            <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/50">
+              <span class="text-xs text-slate-400 block mb-1">Inflow ($Q_{\text{in}}$)</span>
+              <span id="flowInText" class="text-xl font-bold text-cyan-400">0.70 <span class="text-xs font-normal text-slate-400">L/m</span></span>
+              <span class="text-[10px] text-slate-500 block mt-1">Source Meter</span>
+            </div>
+
+            <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/50">
+              <span class="text-xs text-slate-400 block mb-1">Outflow ($Q_{\text{out}}$)</span>
+              <span id="flowOutText" class="text-xl font-bold text-blue-400">0.68 <span class="text-xs font-normal text-slate-400">L/m</span></span>
+              <span class="text-[10px] text-slate-500 block mt-1">Delivery Meter</span>
+            </div>
+
+            <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/50">
+              <span class="text-xs text-slate-400 block mb-1">Differential ($\Delta Q$)</span>
+              <span id="flowDiffText" class="text-xl font-bold text-emerald-400">0.02 <span class="text-xs font-normal text-slate-400">L/m</span></span>
+              <span class="text-[10px] text-slate-500 block mt-1">Threshold: 0.30 L/m</span>
+            </div>
+          </div>
+
+          <!-- Formula callout -->
+          <div class="mt-4 p-2.5 bg-slate-900/40 rounded-lg text-xs text-slate-400 flex items-center justify-between border border-slate-700/30">
+            <span>Conservation Rule: <code class="text-cyan-300">ΔQ = Qin - Qout</code></span>
+            <span>Debounce: <strong id="debounceCounter" class="text-slate-200">0 / 3 cycles</strong></span>
+          </div>
+        </div>
+
+        <!-- Forecasting & ETA Card -->
+        <div class="bg-slate-800/60 border border-slate-700/70 rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h2 class="text-sm font-semibold text-white">Depletion Forecasting & ETA</h2>
+              <p class="text-xs text-slate-400">Calculated time until 10% reserve depletion</p>
+            </div>
+            <div id="tankModeBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              NORMAL
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700/50 flex items-center space-x-3">
+              <div class="p-3 bg-purple-500/20 text-purple-400 rounded-lg">
+                <i class="fa-solid fa-hourglass-half text-xl"></i>
+              </div>
+              <div>
+                <span class="text-xs text-slate-400 block">Time to Reserve (ETA)</span>
+                <span id="etaMinutesText" class="text-2xl font-bold text-white">-- <span class="text-sm font-normal text-slate-400">min</span></span>
+              </div>
+            </div>
+
+            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700/50 flex items-center space-x-3">
+              <div class="p-3 bg-amber-500/20 text-amber-400 rounded-lg">
+                <i class="fa-solid fa-chart-simple text-xl"></i>
+              </div>
+              <div>
+                <span class="text-xs text-slate-400 block">Rolling Avg Demand</span>
+                <span id="avgDemandText" class="text-2xl font-bold text-white">-- <span class="text-sm font-normal text-slate-400">L/m</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Valve Actuators & Decoupled State (Span 1) -->
+      <div class="bg-slate-800/60 border border-slate-700/70 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+        <div>
+          <h2 class="text-sm font-semibold text-white mb-1">Actuation State</h2>
+          <p class="text-xs text-slate-400 mb-4">Decoupled Master vs Flat Actuators</p>
+
+          <div class="space-y-4">
+            <!-- Master Tank Valve -->
+            <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/50">
+              <div class="flex justify-between items-center mb-1.5">
+                <span class="text-xs text-slate-300 font-medium">Master Tank Valve</span>
+                <span id="masterValveText" class="text-xs font-bold text-emerald-400">100% (Open)</span>
+              </div>
+              <div class="w-full bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                <div id="masterValveBar" class="bg-emerald-500 h-full transition-all duration-500" style="width: 100%;"></div>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-1 block">Supply for all apartments</span>
+            </div>
+
+            <!-- Flat 101 Branch Valve -->
+            <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/50">
+              <div class="flex justify-between items-center mb-1.5">
+                <span class="text-xs text-slate-300 font-medium">Flat 101 Valve</span>
+                <span id="flatValveText" class="text-xs font-bold text-emerald-400">100% (Normal)</span>
+              </div>
+              <div class="w-full bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                <div id="flatValveBar" class="bg-emerald-500 h-full transition-all duration-500" style="width: 100%;"></div>
+              </div>
+              <span id="flatValveSubtext" class="text-[10px] text-slate-400 mt-1 block">Unrestricted delivery</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700/40 text-[11px] text-slate-400">
+          <strong class="text-slate-300 block mb-0.5">Decoupled Policy:</strong>
+          If Flat 101 leaks, it throttles to 25% while Master Valve remains 100% open so neighbors are unaffected.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Live Interactive Scenario Injector (For Presentations & Testing) -->
+    <div class="bg-slate-800/40 border border-slate-700/60 rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-sm font-semibold text-white">Live Hardware & Telemetry Simulation Sandbox</h2>
+          <p class="text-xs text-slate-400">Inject test telemetry frames directly into the FastAPI decision engine</p>
+        </div>
+        <span class="text-xs text-slate-400">Device: <code class="text-cyan-300">tank-01</code> | Flat: <code class="text-cyan-300">flat-101</code></span>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-2">
+        <button onclick="injectScenario('normal')" class="bg-slate-700/80 hover:bg-slate-700 hover:border-emerald-500/50 border border-slate-600 text-slate-200 text-xs py-2.5 px-3 rounded-xl transition flex flex-col items-center space-y-1">
+          <span class="text-emerald-400 font-bold text-sm"><i class="fa-solid fa-circle-check"></i> Normal</span>
+          <span class="text-[10px] text-slate-400">Balanced (0.7 / 0.68)</span>
+        </button>
+
+        <button onclick="injectScenario('warning')" class="bg-slate-700/80 hover:bg-slate-700 hover:border-yellow-500/50 border border-slate-600 text-slate-200 text-xs py-2.5 px-3 rounded-xl transition flex flex-col items-center space-y-1">
+          <span class="text-yellow-400 font-bold text-sm"><i class="fa-solid fa-triangle-exclamation"></i> Warning</span>
+          <span class="text-[10px] text-slate-400">55% (ETA < 120m)</span>
+        </button>
+
+        <button onclick="injectScenario('rationing')" class="bg-slate-700/80 hover:bg-slate-700 hover:border-amber-500/50 border border-slate-600 text-slate-200 text-xs py-2.5 px-3 rounded-xl transition flex flex-col items-center space-y-1">
+          <span class="text-amber-400 font-bold text-sm"><i class="fa-solid fa-clock"></i> Rationing</span>
+          <span class="text-[10px] text-slate-400">28% (ETA < 60m)</span>
+        </button>
+
+        <button onclick="injectScenario('leak')" class="bg-red-950/40 hover:bg-red-900/50 hover:border-red-500 border border-red-700/50 text-red-200 text-xs py-2.5 px-3 rounded-xl transition flex flex-col items-center space-y-1 animate-pulse">
+          <span class="text-red-400 font-bold text-sm"><i class="fa-solid fa-droplet-slash"></i> Leak Alert</span>
+          <span class="text-[10px] text-red-300">Fracture (2.2 / 0.5)</span>
+        </button>
+
+        <button onclick="injectScenario('critical')" class="bg-slate-700/80 hover:bg-slate-700 hover:border-red-500/50 border border-slate-600 text-slate-200 text-xs py-2.5 px-3 rounded-xl transition flex flex-col items-center space-y-1">
+          <span class="text-rose-400 font-bold text-sm"><i class="fa-solid fa-ban"></i> Critical Shutoff</span>
+          <span class="text-[10px] text-slate-400">8% (< 10% Reserve)</span>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-slate-800/60 border-t border-slate-700/60 text-slate-400 text-xs py-4 text-center">
+    Final Year Project 2023-2027 &bull; Smart Water Rationing & Dual-Flow Leak Mitigation &bull; Strictly JSN-SR04T Sensor Architecture
+  </footer>
+
+  <script>
+    const DEVICE_ID = "tank-01";
+    let pollInterval = null;
+
+    async function fetchLatest() {
+      try {
+        const response = await fetch(`/devices/${DEVICE_ID}/latest`);
+        if (!response.ok) return;
+        const data = await response.json();
+        updateUI(data.telemetry, data.decision);
+      } catch (err) {
+        console.warn("Polling error:", err);
+      }
+    }
+
+    function updateUI(t, d) {
+      // Tank level & volume
+      const level = Math.max(0, Math.min(100, t.level_percent));
+      document.getElementById('tankFill').style.height = `${level}%`;
+      document.getElementById('tankPercentText').textContent = `${level.toFixed(0)}%`;
+      document.getElementById('tankVolumeText').textContent = `${t.volume_l.toFixed(1)} / 200 L`;
+      document.getElementById('echoDistanceText').textContent = `${t.ultrasonic_distance_cm.toFixed(1)} cm`;
+      document.getElementById('sensorHealthTag').textContent = t.sensor_status === 'ok' ? 'JSN-SR04T OK' : 'SENSOR FAULT';
+      
+      // Dual Flow
+      const qIn = t.flow_lpm || 0;
+      const qOut = t.flow_out_lpm !== null ? t.flow_out_lpm : qIn;
+      const qDiff = Math.max(0, qIn - qOut);
+      document.getElementById('flowInText').innerHTML = `${qIn.toFixed(2)} <span class="text-xs font-normal text-slate-400">L/m</span>`;
+      document.getElementById('flowOutText').innerHTML = `${qOut.toFixed(2)} <span class="text-xs font-normal text-slate-400">L/m</span>`;
+      document.getElementById('flowDiffText').innerHTML = `${qDiff.toFixed(2)} <span class="text-xs font-normal text-slate-400">L/m</span>`;
+
+      // Leak badge
+      const leakBadge = document.getElementById('leakStateBadge');
+      if (d.flat_status === 'LEAK_ALERT') {
+        leakBadge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/50 flex items-center space-x-1.5 animate-pulse';
+        leakBadge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <span>LEAK CONFIRMED</span>`;
+      } else if (d.flat_status === 'SUSPECTED_LEAK') {
+        leakBadge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/50 flex items-center space-x-1.5';
+        leakBadge.innerHTML = `<i class="fa-solid fa-circle-question"></i> <span>DEBOUNCING LEAK</span>`;
+      } else {
+        leakBadge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1.5';
+        leakBadge.innerHTML = `<i class="fa-solid fa-check"></i> <span>Pipeline Sealed</span>`;
+      }
+
+      // Forecasting & ETA
+      document.getElementById('tankModeBadge').textContent = d.tank_mode;
+      document.getElementById('etaMinutesText').innerHTML = d.eta_minutes !== null ? `${d.eta_minutes.toFixed(0)} <span class="text-sm font-normal text-slate-400">min</span>` : `&infin;`;
+      document.getElementById('avgDemandText').innerHTML = `${d.predicted_flow_lpm.toFixed(2)} <span class="text-sm font-normal text-slate-400">L/m</span>`;
+
+      // Actuators
+      const masterV = d.master_valve_percent !== undefined ? d.master_valve_percent : d.valve_percent;
+      const flatV = d.flat_valve_percent !== undefined ? d.flat_valve_percent : d.valve_percent;
+      document.getElementById('masterValveText').textContent = `${masterV.toFixed(0)}%`;
+      document.getElementById('masterValveBar').style.width = `${masterV}%`;
+      document.getElementById('flatValveText').textContent = `${flatV.toFixed(0)}%`;
+      document.getElementById('flatValveBar').style.width = `${flatV}%`;
+      
+      const flatSubtext = document.getElementById('flatValveSubtext');
+      if (flatV <= 25 && d.flat_status === 'LEAK_ALERT') {
+        flatSubtext.innerHTML = `<span class="text-red-400 font-semibold">Throttled to 25% to curb active leak</span>`;
+        document.getElementById('flatValveBar').className = "bg-red-500 h-full transition-all duration-500";
+      } else {
+        flatSubtext.textContent = "Unrestricted delivery";
+        document.getElementById('flatValveBar').className = "bg-emerald-500 h-full transition-all duration-500";
+      }
+
+      // Alert Banner
+      document.getElementById('alertTitle').textContent = `System Mode: ${d.mode}`;
+      document.getElementById('alertPriority').textContent = d.priority;
+      document.getElementById('alertReason').textContent = d.reason;
+    }
+
+    async function injectScenario(type) {
+      let payload = {
+        device_id: DEVICE_ID,
+        flat_id: "flat-101",
+        timestamp: new Date().toISOString(),
+        level_percent: 80,
+        volume_l: 160,
+        flow_lpm: 0.7,
+        flow_out_lpm: 0.68,
+        ultrasonic_distance_cm: 32.0,
+        sensor_status: "ok",
+        valve_percent: 100,
+        pump_on: false,
+        rssi: -55
+      };
+
+      if (type === 'warning') {
+        payload.level_percent = 55;
+        payload.volume_l = 110;
+        payload.flow_lpm = 1.1;
+        payload.flow_out_lpm = 1.08;
+        payload.ultrasonic_distance_cm = 41.5;
+      } else if (type === 'rationing') {
+        payload.level_percent = 28;
+        payload.volume_l = 56;
+        payload.flow_lpm = 1.4;
+        payload.flow_out_lpm = 1.38;
+        payload.ultrasonic_distance_cm = 50.2;
+      } else if (type === 'leak') {
+        // Send 3 cycles to confirm leak
+        for (let i = 1; i <= 3; i++) {
+          payload.level_percent = 26 - i;
+          payload.volume_l = 52 - (i*2);
+          payload.flow_lpm = 2.2;
+          payload.flow_out_lpm = 0.50; // High differential = 1.70 L/min!
+          payload.ultrasonic_distance_cm = 51.0 + (i*0.4);
+          await fetch('/telemetry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        }
+        await fetchLatest();
+        return;
+      } else if (type === 'critical') {
+        payload.level_percent = 8;
+        payload.volume_l = 16;
+        payload.flow_lpm = 1.0;
+        payload.flow_out_lpm = 0.98;
+        payload.ultrasonic_distance_cm = 57.2;
+      }
+
+      await fetch('/telemetry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      await fetchLatest();
+    }
+
+    // Start Polling every 2 seconds
+    fetchLatest();
+    pollInterval = setInterval(fetchLatest, 2000);
+  </script>
+</body>
+</html>
