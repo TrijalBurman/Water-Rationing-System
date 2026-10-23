@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1110" viewBox="0 0 1600 1110">
+<title>YF-S201 flow sensor yellow wire voltage divider to ESP32</title>
+<desc>For a verified driven zero-to-five-volt signal: yellow through a one-kilohm resistor to GPIO27; from that junction two further one-kilohm resistors in series to common ground. Sensor two uses its own circuit at GPIO32. Sensor red is regulated five volts; black, ESP32 ground and supply negative are joined.</desc>
+<rect width="1600" height="1110" fill="#f5f7fb"/>
+<rect x="32" y="24" width="1536" height="1058" rx="24" fill="#ffffff" stroke="#dbe3ee" stroke-width="2"/>
+<text x="64" y="52" font-family="DejaVu Sans, Arial, sans-serif" font-size="40" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">Flow sensor yellow wire → ESP32</text>
+<text x="64" y="106" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="400" fill="#475569" text-anchor="start" dominant-baseline="hanging">Three 1 kΩ resistors form one voltage divider.</text>
+<rect x="64" y="155" width="1472" height="80" rx="12" fill="#fff8df" stroke="#e8d085" stroke-width="2"/>
+<text x="86" y="172" font-family="DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">Use only with a verified driven 0–5 V yellow-wire signal.</text>
+<text x="86" y="205" font-family="DejaVu Sans, Arial, sans-serif" font-size="20" font-weight="400" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">Check signal peaks and output type first; open-collector variants may need a different interface.</text>
+<rect x="64" y="300" width="306" height="430" rx="16" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+<text x="95" y="316" font-family="DejaVu Sans, Arial, sans-serif" font-size="30" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">YF-S201</text>
+<text x="95" y="368" font-family="DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="700" fill="#b91c1c" text-anchor="start" dominant-baseline="hanging">RED · supply</text>
+<text x="95" y="477" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-weight="700" fill="#8a5700" text-anchor="start" dominant-baseline="hanging">YELLOW · pulses</text>
+<text x="95" y="650" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">BLACK · ground</text>
+<text x="95" y="696" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#64748b" text-anchor="start" dominant-baseline="hanging">Robu SKU 43647</text>
+<polyline points="370,380 505,380 505,275" fill="none" stroke="#dc2626" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="505" cy="275" r="7" fill="#dc2626"/>
+<text x="505" y="248" font-family="DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="700" fill="#b91c1c" text-anchor="middle" dominant-baseline="hanging">Regulated +5 V</text>
+<polyline points="370,490 590,490" fill="none" stroke="#a16207" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="370,490 590,490" fill="none" stroke="#eab308" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="590" y="465" width="130" height="50" rx="0" fill="#ffffff" stroke="#334155" stroke-width="4"/>
+<text x="655" y="412" font-family="DejaVu Sans, Arial, sans-serif" font-size="24" font-weight="700" fill="#0f172a" text-anchor="middle" dominant-baseline="hanging">R1 = 1 kΩ</text>
+<polyline points="720,490 880,490 1220,490" fill="none" stroke="#2563eb" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="880" cy="490" r="7" fill="#2563eb"/>
+<text x="1050" y="432" font-family="DejaVu Sans, Arial, sans-serif" font-size="24" font-weight="700" fill="#1d4ed8" text-anchor="middle" dominant-baseline="hanging">≈ 3.33 V HIGH</text>
+<text x="780" y="528" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#1d4ed8" text-anchor="start" dominant-baseline="hanging">Junction</text>
+<polyline points="880,490 880,565" fill="none" stroke="#2563eb" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="852" y="565" width="56" height="60" rx="0" fill="#ffffff" stroke="#334155" stroke-width="4"/>
+<text x="812" y="581" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-weight="700" fill="#0f172a" text-anchor="middle" dominant-baseline="hanging">R2</text>
+<text x="942" y="581" font-family="DejaVu Sans, Arial, sans-serif" font-size="24" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">1 kΩ</text>
+<polyline points="880,625 880,665" fill="none" stroke="#334155" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="852" y="665" width="56" height="60" rx="0" fill="#ffffff" stroke="#334155" stroke-width="4"/>
+<text x="812" y="681" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-weight="700" fill="#0f172a" text-anchor="middle" dominant-baseline="hanging">R3</text>
+<text x="942" y="681" font-family="DejaVu Sans, Arial, sans-serif" font-size="24" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">1 kΩ</text>
+<polyline points="880,725 880,820" fill="none" stroke="#334155" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1005" y="610" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">R2 + R3 = 2 kΩ</text>
+<text x="1005" y="644" font-family="DejaVu Sans, Arial, sans-serif" font-size="20" font-weight="400" fill="#475569" text-anchor="start" dominant-baseline="hanging">Connected in series</text>
+<rect x="1220" y="330" width="316" height="400" rx="16" fill="#eff6ff" stroke="#93b4e5" stroke-width="2"/>
+<text x="1260" y="360" font-family="DejaVu Sans, Arial, sans-serif" font-size="32" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">ESP32</text>
+<circle cx="1220" cy="490" r="7" fill="#2563eb"/>
+<text x="1250" y="477" font-family="DejaVu Sans, Arial, sans-serif" font-size="29" font-weight="700" fill="#1d4ed8" text-anchor="start" dominant-baseline="hanging">GPIO 27</text>
+<text x="1250" y="525" font-family="DejaVu Sans, Arial, sans-serif" font-size="21" font-weight="400" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">Sensor #1 input</text>
+<text x="1250" y="585" font-family="DejaVu Sans, Arial, sans-serif" font-size="19" font-weight="400" fill="#475569" text-anchor="start" dominant-baseline="hanging">Repeat separately:</text>
+<text x="1250" y="620" font-family="DejaVu Sans, Arial, sans-serif" font-size="20" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">Sensor #2 → GPIO 32</text>
+<text x="1250" y="686" font-family="DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">GND</text>
+<polyline points="370,660 470,660 470,820 1330,820 1330,730" fill="none" stroke="#334155" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="880" cy="820" r="7" fill="#334155"/>
+<circle cx="650" cy="820" r="7" fill="#334155"/>
+<text x="650" y="779" font-family="DejaVu Sans, Arial, sans-serif" font-size="20" font-weight="400" fill="#0f172a" text-anchor="middle" dominant-baseline="hanging">5 V supply −</text>
+<polyline points="880,820 880,858" fill="none" stroke="#334155" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="854,858 906,858" fill="none" stroke="#334155" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="862,868 898,868" fill="none" stroke="#334155" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="872,878 888,878" fill="none" stroke="#334155" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1015" y="843" font-family="DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">Common GND</text>
+<text x="64" y="862" font-family="DejaVu Sans, Arial, sans-serif" font-size="21" font-weight="400" fill="#475569" text-anchor="start" dominant-baseline="hanging">At a 5.0 V pulse:  Vout = 5 × 2 kΩ / (1 kΩ + 2 kΩ) ≈ 3.33 V</text>
+<rect x="64" y="920" width="1472" height="135" rx="12" fill="#f1f5f9" stroke="#dbe3ee" stroke-width="2"/>
+<text x="86" y="941" font-family="DejaVu Sans, Arial, sans-serif" font-size="22" font-weight="700" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">Per sensor: 3 × 1 kΩ resistors (SKU 582209). Resistors have no polarity.</text>
+<text x="86" y="980" font-family="DejaVu Sans, Arial, sans-serif" font-size="20" font-weight="400" fill="#0f172a" text-anchor="start" dominant-baseline="hanging">Two flow sensors: 6 resistors total. Keep their GPIO junctions separate; share only ground and supply.</text>
+<text x="86" y="1018" font-family="DejaVu Sans, Arial, sans-serif" font-size="20" font-weight="400" fill="#9f1239" text-anchor="start" dominant-baseline="hanging">Do not substitute your 150 Ω resistor (R225229). Do not connect yellow directly to the ESP32.</text>
+</svg>
