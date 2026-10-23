@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     demo_autostart: bool = False
     api_key: str = ""
     data_dir: Path = ROOT / "data"
-    tank_capacity_l: float = Field(default=200, gt=0)
+    tank_capacity_l: float = Field(default=2.5, gt=0)
     daily_quota_l: float = Field(default=150, gt=0)
     quota_timezone: str = "Asia/Kolkata"
     default_device_id: str = "tank-01"

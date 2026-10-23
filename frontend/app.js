@@ -21,7 +21,23 @@ const palette = {
 };
 const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
 const fullTimeFormatter = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-const modeTone = (mode) => ['CRITICAL', 'LEAK_ALERT', 'SENSOR_FAULT'].includes(mode) ? 'danger' : ['WARNING', 'RATIONING', 'SUSPECTED_LEAK'].includes(mode) ? 'warning' : mode === 'NORMAL' ? 'good' : '';
+const modeTone = (mode) => ['CRITICAL', 'LEAK_ALERT', 'SENSOR_FAULT', 'TRANSFER_STOPPED'].includes(mode) ? 'danger' : ['WARNING', 'RATIONING', 'SUSPECTED_LEAK'].includes(mode) ? 'warning' : mode === 'NORMAL' ? 'good' : '';
+const isTwoTank = (telemetry) => telemetry?.hardware_profile === 'two_tank_transfer';
+const localStopLabel = (reason) => ({
+  none: 'No local stop', setup_required: 'Commissioning required · source geometry uncalibrated',
+  float_stop: 'Float stop or disconnected circuit', float_recovering: 'Waiting for a stable float circuit',
+  clock_unsynced: 'Device clock is not synchronized',
+}[reason] || 'Not configured');
+const floatStateLabel = (telemetry) => ({
+  permit: 'Permit circuit closed', recovering: 'Recovering · transfer stopped',
+  stop_or_disconnected: telemetry?.float_switch_role === 'receiver_full'
+    ? 'Receiver full OR circuit disconnected' : 'Source low OR circuit disconnected',
+}[telemetry?.float_switch_state] || 'Not configured');
+const receiverLabel = (telemetry) => !isTwoTank(telemetry) || telemetry.float_switch_role !== 'receiver_full'
+  ? 'Not configured' : ({
+    permit: 'Below full cutoff · float only', recovering: 'Float recovering · level unknown',
+    stop_or_disconnected: 'Full OR float circuit disconnected',
+  }[telemetry.float_switch_state] || 'Not configured');
 const state = {
   overview: null, snapshot: null, deviceId: '', history: [], historySource: null,
   historyRange: 60, demo: null, view: 'overview', admin: false, online: false,
@@ -144,20 +160,24 @@ function renderSnapshot() {
   const quota = state.snapshot?.quota;
   const tankMode = decision?.tank_mode;
   const branchStatus = decision?.flat_status;
-  const level = telemetry?.level_percent;
+  const twoTank = isTwoTank(telemetry);
+  const setupRequired = twoTank && telemetry.local_stop_reason === 'setup_required';
+  const level = setupRequired ? null : telemetry?.level_percent;
+  setText('tank-heading', twoTank ? 'SOURCE TANK' : 'COMMUNITY TANK');
   setText('level-value', number(level));
-  setText('volume-value', number(telemetry?.volume_l));
+  setText('volume-value', number(setupRequired ? null : telemetry?.volume_l));
   $('tank-fill').style.height = `${percent(level)}%`;
-  $('tank-visual').setAttribute('aria-label', Number.isFinite(level) ? `Tank ${number(level)} percent full, with a protected reserve below 10 percent` : 'Tank water level unavailable');
+  $('tank-visual').setAttribute('aria-label', setupRequired ? 'Source tank geometry is uncalibrated' : Number.isFinite(level) ? `${twoTank ? 'Source tank' : 'Tank'} ${number(level)} percent full, with a protected reserve below 10 percent` : 'Tank water level unavailable');
   const tankModeLabel = { NORMAL: 'Healthy supply', WARNING: 'Supply watch', RATIONING: 'Rationing active', CRITICAL: 'Reserve protected', SENSOR_FAULT: 'Sensor fault' }[tankMode] || 'Awaiting data';
   setText('tank-mode', tankModeLabel);
   $('tank-mode').className = `tank-mode ${modeTone(tankMode) === 'good' ? 'normal' : modeTone(tankMode)}`;
   const captions = { NORMAL: 'A steady supply for your community.', WARNING: 'Supply is declining. Please use water thoughtfully.', RATIONING: 'Sharing the remaining supply fairly.', CRITICAL: 'Community valves are closed to protect the reserve.', SENSOR_FAULT: 'Limited supply while the sensor needs attention.' };
-  setText('tank-caption', captions[tankMode] || 'Your community supply, monitored in real time.');
+  setText('tank-caption', setupRequired ? 'Commissioning required. Calibrate the source tank geometry before enabling transfer.' : twoTank && tankMode === 'CRITICAL' ? 'Transfer is stopped to protect the source reserve.' : twoTank && tankMode === 'SENSOR_FAULT' ? 'Source level sensor needs attention. Check its probe and wiring.' : captions[tankMode] || 'Your community supply, monitored in real time.');
   const eta = decision?.eta_minutes;
-  if (Number.isFinite(eta)) $('eta-value').innerHTML = `${escapeHtml(number(Math.max(0, eta), 0))} <small>min</small>`;
+  if (setupRequired) setText('eta-value', 'Uncalibrated');
+  else if (Number.isFinite(eta)) $('eta-value').innerHTML = `${escapeHtml(number(Math.max(0, eta), 0))} <small>min</small>`;
   else setText('eta-value', telemetry ? 'No depletion estimate' : '—');
-  setText('reserve-status', tankMode === 'CRITICAL' ? 'Valve locked closed' : telemetry ? '10% reserve threshold' : 'Awaiting readings');
+  setText('reserve-status', setupRequired ? 'Calibration required' : tankMode === 'CRITICAL' ? 'Valve locked closed' : telemetry ? '10% reserve threshold' : 'Awaiting readings');
 
   const used = quota?.consumed_l;
   const allowance = quota?.allowance_l;
@@ -174,6 +194,8 @@ function renderSnapshot() {
   setText('quota-note', !quota ? 'Every liter saved helps your community.' : usagePercent >= 100 ? 'Your allowance has been reached. Please conserve water.' : usagePercent >= 85 ? 'A little care will help your allowance last.' : 'Every liter saved helps your community.');
   setText('flow-in-value', number(telemetry?.flow_lpm, 2));
   setText('flow-out-value', number(telemetry?.flow_out_lpm, 2));
+  setText('flow-in-description', twoTank ? 'Leaving the source into the monitored pipe' : 'Entering the monitored branch');
+  setText('flow-out-description', twoTank ? 'Reaching the receiving tank' : 'Reaching your household');
   const delta = telemetry ? telemetry.flow_lpm - telemetry.flow_out_lpm : null;
   setText('balance-value', number(delta, 2));
   setWidth('flow-in-bar', (telemetry?.flow_lpm || 0) / 10 * 100);
@@ -187,10 +209,23 @@ function renderSnapshot() {
   for (const [name, value] of [['master', decision?.master_valve_percent], ['flat', decision?.flat_valve_percent]]) {
     $(`${name}-value`).innerHTML = `${escapeHtml(number(value, 0))}<small>%</small>`;
     setWidth(`${name}-bar`, value);
-    setText(`${name}-caption`, !Number.isFinite(value) ? 'Waiting for controller' : value === 0 ? 'Closed · no flow permitted' : value === 100 ? 'Full duty · continuous supply' : `${number(30 * value / 100, 1)}s open in each 30s cycle`);
+    setText(`${name}-caption`, !Number.isFinite(value) ? 'Waiting for controller' : twoTank ? value === 0 ? 'Command limit · transfer stopped' : `${number(value, 0)}% maximum duty · one installed valve` : value === 0 ? 'Closed · no flow permitted' : value === 100 ? 'Full duty · continuous supply' : `${number(30 * value / 100, 1)}s open in each 30s cycle`);
+  }
+  setText('master-label', twoTank ? 'Source command limit' : 'Community valve');
+  setText('flat-heading', twoTank ? 'Pipe command limit' : 'Your branch');
+  setText('distribution-note', twoTank ? 'One transfer valve uses the lower of the source and pipe command limits. Its reported duty and relay command appear above.' : 'Valves use a 30-second cycle to share supply fairly and protect the reserve.');
+  $('transfer-overview').hidden = !twoTank;
+  if (twoTank) {
+    setBadge('transfer-overview-badge', telemetry.transfer_permitted ? 'Local checks permit transfer' : 'Transfer stopped', telemetry.transfer_permitted ? 'good' : 'danger');
+    setText('transfer-overview-detail', setupRequired ? 'Commissioning required: source tank dimensions are uncalibrated. Transfer remains disabled until calibration and hardware checks are complete.' : telemetry.float_switch_role === 'receiver_full' ? 'AJ-SR04M measures the source tank. The receiver float provides a full cutoff only; no receiver percentage is measured.' : 'AJ-SR04M measures the source tank. The float provides a source low-level cutoff; receiver level is not measured.');
+    setText('source-level-value', setupRequired ? 'Uncalibrated' : `${number(level)}% · ${number(telemetry.volume_l)} L`);
+    setText('receiver-tank-label', `Receiver tank · ${number(telemetry.receiver_capacity_l)} L capacity`);
+    setText('receiver-status', receiverLabel(telemetry));
+    setText('transfer-duty', `${number(telemetry.valve_percent, 0)}% reported local duty`);
+    setText('transfer-relay', telemetry.relay_energized ? 'Energized · commanded output only' : 'De-energized · commanded output only');
   }
   setText('flat-label', telemetry?.flat_id ? `· ${telemetry.flat_id}` : '');
-  setText('overview-health', !telemetry ? 'Continuous monitoring · Local reserve protection' : telemetry.sensor_status === 'ok' && !isStale() ? 'Sensor healthy · Local reserve protection' : isStale() ? 'Telemetry is stale · Check the device connection' : 'Sensor needs attention · Conservative supply limit');
+  setText('overview-health', twoTank && !telemetry.transfer_permitted ? `Transfer stopped · ${localStopLabel(telemetry.local_stop_reason)}` : !telemetry ? 'Continuous monitoring · Local reserve protection' : telemetry.sensor_status === 'ok' && !isStale() ? 'Sensor healthy · Local reserve protection' : isStale() ? 'Telemetry is stale · Check the device connection' : 'Sensor needs attention · Conservative supply limit');
   renderAlert();
   renderHealth();
   renderConnection();
@@ -213,14 +248,16 @@ function renderAlert() {
   const snapshot = state.snapshot;
   const telemetry = snapshot?.telemetry;
   const decision = snapshot?.decision;
+  const twoTank = isTwoTank(telemetry);
   const banner = $('alert-banner');
   let alert = null;
   if (telemetry && isStale()) alert = { title: 'These readings need a refresh', detail: 'The device has not sent recent telemetry. Values below show its last known state.', badge: 'STALE' };
-  else if (decision?.tank_mode === 'CRITICAL') alert = { title: 'The community reserve is protected', detail: 'The tank is below 10%. Both valves are closed to protect the remaining water.', badge: 'CRITICAL', critical: true };
+  else if (decision?.tank_mode === 'CRITICAL') alert = { title: twoTank ? 'The source reserve is protected' : 'The community reserve is protected', detail: twoTank ? 'The source tank is below its protected reserve. Transfer is stopped.' : 'The tank is below 10%. Both valves are closed to protect the remaining water.', badge: 'CRITICAL', critical: true };
+  else if (decision?.mode === 'TRANSFER_STOPPED') alert = { title: telemetry.local_stop_reason === 'setup_required' ? 'Commissioning is required before transfer' : 'Tank transfer is stopped', detail: decision.reason, badge: 'TRANSFER STOPPED', critical: true };
   else if (decision?.tank_mode === 'SENSOR_FAULT') alert = { title: 'The level sensor needs attention', detail: 'An invalid ultrasonic reading triggered a conservative valve duty limit. Inspect the probe and its wiring.', badge: 'SENSOR FAULT', critical: true };
-  else if (decision?.flat_status === 'LEAK_ALERT') alert = { title: 'A sustained flow loss was detected in your branch', detail: `The branch valve is limited to ${number(decision.flat_valve_percent, 0)}% duty. Check your pipes and taps. The community valve follows the tank's supply needs.`, badge: 'LEAK ALERT', critical: true };
+  else if (decision?.flat_status === 'LEAK_ALERT') alert = { title: twoTank ? 'A sustained flow loss was detected between the tanks' : 'A sustained flow loss was detected in your branch', detail: twoTank ? `The single transfer valve is limited to ${number(Math.min(decision.master_valve_percent, decision.flat_valve_percent), 0)}% duty. Inspect the pipe between the two flow sensors.` : `The branch valve is limited to ${number(decision.flat_valve_percent, 0)}% duty. Check your pipes and taps. The community valve follows the tank's supply needs.`, badge: 'LEAK ALERT', critical: true };
   else if (decision?.flat_status === 'SUSPECTED_LEAK') alert = { title: 'Checking an irregular flow reading', detail: 'Supply and delivery flow differ. The controller waits for three consecutive readings before confirming a leak.', badge: 'VERIFYING' };
-  else if (decision?.tank_mode === 'RATIONING') alert = { title: 'Fair-share rationing is active', detail: `The community valve is operating at ${number(decision.master_valve_percent, 0)}% duty to extend the remaining supply. Please limit nonessential water use.`, badge: 'RATIONING' };
+  else if (decision?.tank_mode === 'RATIONING') alert = { title: 'Fair-share rationing is active', detail: twoTank ? `The source command limits the transfer valve to ${number(decision.master_valve_percent, 0)}% duty to preserve the source reserve.` : `The community valve is operating at ${number(decision.master_valve_percent, 0)}% duty to extend the remaining supply. Please limit nonessential water use.`, badge: 'RATIONING' };
   else if (decision?.tank_mode === 'WARNING') alert = { title: 'Your community supply is running lower', detail: 'The forecast is approaching the protected reserve. Please use water thoughtfully and prepare for rationing.', badge: 'SUPPLY WATCH' };
   banner.hidden = !alert;
   if (alert) {
@@ -234,10 +271,26 @@ function renderAlert() {
 function renderHealth() {
   const telemetry = state.snapshot?.telemetry;
   const decision = state.snapshot?.decision;
+  const twoTank = isTwoTank(telemetry);
   const services = state.overview?.services;
   const healthValue = (id, value, tone) => { setText(id, value); $(id).className = `health-value ${tone}`; };
   healthValue('sensor-health', !telemetry ? 'Awaiting data' : telemetry.sensor_status === 'ok' ? 'Healthy echo' : 'Attention needed', !telemetry ? '' : telemetry.sensor_status === 'ok' ? 'good' : 'danger');
   setText('echo-value', `${number(telemetry?.ultrasonic_distance_cm)} cm`);
+  setText('sensor-model', twoTank ? 'AJ-SR04M source tank ultrasonic probe' : `${telemetry?.level_sensor_model || 'JSN-SR04T'} waterproof ultrasonic probe`);
+  setText('echo-range-label', twoTank ? 'Installed sensor range' : 'Valid echo range');
+  setText('echo-range', twoTank ? 'Use firmware limits; verify on bench' : '20–600 cm');
+  setBadge('hardware-profile', twoTank ? 'Two-tank transfer' : 'Not configured');
+  const relayMismatch = twoTank && telemetry.relay_energized && (!telemetry.transfer_permitted || telemetry.requested_valve_percent === 0);
+  setText('hardware-detail', !twoTank ? 'The selected device does not report the two-tank transfer profile.' : relayMismatch ? 'Reported relay output conflicts with the safety gate or requested duty. Stop commands are issued when the gate is blocked; inspect the device before proceeding.' : 'One relay controls one normally closed transfer valve. Output telemetry reports the software command; there is no valve-position feedback.');
+  setText('float-role', twoTank ? telemetry.float_switch_role === 'receiver_full' ? 'Receiver full cutoff' : 'Source low-level cutoff' : 'Not configured');
+  setText('float-state', twoTank ? floatStateLabel(telemetry) : 'Not configured');
+  setText('receiver-level', receiverLabel(telemetry));
+  setText('receiver-capacity', twoTank ? `${number(telemetry.receiver_capacity_l)} L capacity · not a live volume` : 'Not configured');
+  setText('transfer-gate', twoTank ? telemetry.transfer_permitted ? 'Local checks permit transfer' : 'Stopped by local checks' : 'Not configured');
+  setText('local-stop', twoTank ? localStopLabel(telemetry.local_stop_reason) : 'Not configured');
+  setText('requested-transfer-duty', twoTank ? `${number(telemetry.requested_valve_percent, 0)}%` : 'Not configured');
+  setText('relay-command', twoTank ? telemetry.relay_energized ? 'Energized · output command only' : 'De-energized · output command only' : 'Not configured');
+  setText('safety-copy', twoTank ? 'The ESP32 stops transfer below the protected source reserve. Commissioning, float, and clock checks can also stop transfer locally. An open float circuit means stop, including a disconnected wire. Receiver volume and percentage are not measured; the reported float role identifies its cutoff function.' : 'The ESP32 closes the valve below 10% tank level locally. Invalid ultrasonic echoes limit valve duty to 30%. Sustained branch flow loss triggers emergency branch flow after three consecutive readings.');
   healthValue('mqtt-health', !services ? 'Checking…' : services.mqtt_connected ? 'Connected' : services.mqtt_configured ? 'Not connected' : 'Not configured', !services || !services.mqtt_configured ? '' : services.mqtt_connected ? 'good' : 'warning');
   healthValue('influx-health', !services ? 'Checking…' : services.influx_connected ? 'Connected' : services.influx_configured ? 'Not connected' : 'Local history only', !services ? '' : services.influx_connected ? 'good' : services.influx_configured ? 'warning' : '');
   setText('history-source', state.historySource ? humanize(state.historySource) : services ? 'Local recorder' : '—');
@@ -307,14 +360,19 @@ function renderHistory() {
   const deliveredPath = path('flow_out_lpm');
   const area = segments.map(segment => `${segmentPath(segment, 'flow_lpm')} L${x(segment[segment.length - 1]).toFixed(2)},${height - margin.bottom} L${x(segment[0]).toFixed(2)},${height - margin.bottom} Z`).join(' ');
   const lastPoint = plotted[plotted.length - 1];
+  // Polling and layout changes redraw the SVG. Preserve active keyboard
+  // inspection so a fresh sample/resize does not silently dismiss its tooltip.
+  const keyboardInspection = document.activeElement === chart && chart.dataset.keyboardInspection === 'true';
   chart.tabIndex = 0;
   chart.setAttribute('aria-label', 'Supply and delivery flow history. Use left and right arrow keys to inspect readings.');
   chart.innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Supply and delivery water flow history; ${points.length} readings"><defs><linearGradient id="chart-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${palette.supply}" stop-opacity=".18"/><stop offset="100%" stop-color="${palette.supply}" stop-opacity="0"/></linearGradient></defs>${grid}<path d="${area}" fill="url(#chart-area)"/><path d="${supplyPath}" class="chart-line" stroke="${palette.supply}"/><path d="${deliveredPath}" class="chart-line" stroke="${palette.delivered}" stroke-dasharray="5 4"/><circle cx="${x(lastPoint)}" cy="${y(lastPoint.flow_lpm)}" r="6" fill="${palette.supply}" opacity=".16"/><circle cx="${x(lastPoint)}" cy="${y(lastPoint.flow_lpm)}" r="3" fill="${palette.supply}"/><circle cx="${x(lastPoint)}" cy="${y(lastPoint.flow_out_lpm)}" r="3" fill="${palette.delivered}"/><line id="chart-crosshair" x1="0" x2="0" y1="${margin.top}" y2="${height - margin.bottom}" stroke="var(--chart-crosshair, #6983a5)" stroke-dasharray="3 3" visibility="hidden"/></svg><div class="chart-tooltip" id="chart-tooltip" hidden></div><span class="sr-only" id="chart-announcement" aria-live="polite"></span>`;
   const hideInspection = () => {
+    chart.dataset.keyboardInspection = 'false';
     if ($('chart-tooltip')) $('chart-tooltip').hidden = true;
     $('chart-crosshair')?.setAttribute('visibility', 'hidden');
   };
   const inspectPoint = (index, anchorX, announce = false) => {
+    if (announce) chart.dataset.keyboardInspection = 'true';
     const point = points[index];
     const rect = chart.getBoundingClientRect();
     const tooltip = $('chart-tooltip');
@@ -328,6 +386,7 @@ function renderHistory() {
     if (announce) setText('chart-announcement', `${fullTimeFormatter.format(new Date(point.timestamp))}. Supply ${number(point.flow_lpm, 2)} liters per minute. Delivered ${number(point.flow_out_lpm, 2)} liters per minute.`);
   };
   chart.onpointermove = (event) => {
+    chart.dataset.keyboardInspection = 'false';
     const rect = chart.getBoundingClientRect();
     const virtualX = (event.clientX - rect.left) / rect.width * width;
     const timestamp = start + (virtualX - margin.left) / plotWidth * timeSpan;
@@ -352,7 +411,11 @@ function renderHistory() {
     chart.dataset.cursorIndex = String(index);
     inspectPoint(index, x(points[index]), true);
   };
-  $('history-table').innerHTML = points.slice(-100).reverse().map((point) => `<tr><td>${escapeHtml(fullTimeFormatter.format(new Date(point.timestamp)))}</td><td>${escapeHtml(number(point.level_percent))}%</td><td>${escapeHtml(number(point.flow_lpm, 2))} L/min</td><td>${escapeHtml(number(point.flow_out_lpm, 2))} L/min</td><td>${escapeHtml(number(point.master_valve_percent, 0))}% / ${escapeHtml(number(point.flat_valve_percent, 0))}%</td><td><span class="history-mode badge ${modeTone(point.mode)}">${escapeHtml(humanize(point.mode))}</span></td></tr>`).join('');
+  if (keyboardInspection) {
+    const index = Math.max(0, Math.min(points.length - 1, Number(chart.dataset.cursorIndex ?? points.length - 1)));
+    inspectPoint(index, x(points[index]), true);
+  }
+  $('history-table').innerHTML = points.slice(-100).reverse().map((point) => `<tr><td>${escapeHtml(fullTimeFormatter.format(new Date(point.timestamp)))}</td><td>${isTwoTank(point) && point.local_stop_reason === 'setup_required' ? 'Uncalibrated' : `${escapeHtml(number(point.level_percent))}%`}</td><td>${escapeHtml(number(point.flow_lpm, 2))} L/min</td><td>${escapeHtml(number(point.flow_out_lpm, 2))} L/min</td><td>${escapeHtml(number(point.master_valve_percent, 0))}% / ${escapeHtml(number(point.flat_valve_percent, 0))}%</td><td><span class="history-mode badge ${modeTone(point.mode)}">${escapeHtml(humanize(point.mode))}</span></td></tr>`).join('');
 }
 
 async function fetchHistory(force = false) {
@@ -490,6 +553,7 @@ function changeDevice(deviceId) {
 function exportHistory() {
   if (!state.history.length) { toast('No history to export yet. Connect a device or start the simulation.'); return; }
   const fields = ['timestamp', 'level_percent', 'flow_lpm', 'flow_out_lpm', 'master_valve_percent', 'flat_valve_percent', 'eta_minutes', 'mode', 'leak_rate_lpm'];
+  if (state.history.some(isTwoTank)) fields.push('hardware_profile', 'level_sensor_model', 'sensor_status', 'float_switch_role', 'float_switch_state', 'transfer_permitted', 'local_stop_reason', 'relay_energized', 'requested_valve_percent', 'valve_percent', 'receiver_capacity_l');
   const csvCell = (value) => {
     let text = value === null || value === undefined ? '' : String(value);
     if (/^[=+@\t\r]/.test(text) || (text.startsWith('-') && !Number.isFinite(Number(text)))) text = `'${text}`;

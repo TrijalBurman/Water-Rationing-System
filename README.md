@@ -1,6 +1,6 @@
 # WaterWise · Smart Water Management
 
-An implementation of the supplied [system plan](implementation_plan.md): ESP32 sensing and valve control, a FastAPI decision service, an authenticated MQTT broker, InfluxDB history, Grafana operations dashboard, and a responsive resident/admin portal.
+A water-transfer monitor for the owned **2.5 L source tank and 1.5 L receiver**: ESP32 sensing, local float protection, one valve, a FastAPI decision service, authenticated MQTT, InfluxDB history, Grafana, and a resident/admin portal. The [original plan](implementation_plan.md) provides the control algorithm; the current [hardware guide](docs/hardware.md) describes the actual components.
 
 ## Run the working demo
 
@@ -25,14 +25,14 @@ The local demo binds only to the local machine and needs no API key. It does not
 | --- | --- | --- |
 | Controller and API | `backend/` | Forecasts reserve depletion, detects branch leaks, issues expiring commands, records history and daily use |
 | Resident/admin portal | `frontend/` | Live tank and quota indicators, flow history, leak alerts, hardware status, simulator controls |
-| ESP32 firmware | `firmware/esp32/` | JSN-SR04T median filtering, two flow meters, independent reserve protection, 30-second valve duty cycle |
+| ESP32 firmware | `firmware/esp32/` | AJ-SR04M distance, two YF-S201 meters, receiver float stop, local source reserve protection, one transfer valve |
 | Deployment | `compose.yaml`, `scripts/bootstrap.sh` | FastAPI, Mosquitto 2.0, InfluxDB 2.7, Grafana 11.4 |
 | Flight recorder | `grafana/dashboards/water-rationing.json` | Eight provisioned panels, refreshing every five seconds |
 | Verification | `tests/`, `firmware/esp32/test-native.sh` | Controller, API, persistence, and native firmware safety tests |
 
 ## Controller behavior
 
-The protected reserve is 10% of configured capacity (20 L for a 200 L tank). The average of the last five delivery-inlet flow readings predicts minutes to reserve.
+The protected source reserve is 10% of configured capacity: **0.25 L for the 2.5 L source**. The average of the last five pipe-inlet readings predicts minutes to reserve. The source depth is approximately 20 cm and still requires calibration. With a starting 30 cm probe standoff, calculated full/empty distances are 30/50 cm and the 10% reserve boundary is 48 cm.
 
 | Tank condition, evaluated in order | Master valve duty |
 | --- | --- |
@@ -42,9 +42,9 @@ The protected reserve is 10% of configured capacity (20 L for a 200 L tank). The
 | Forecast from 60 to below 120 minutes | 100%, warning |
 | Otherwise | 100% |
 
-A branch imbalance above `max(0.3 L/min, 15% of inlet flow)` for three consecutive readings limits the branch valve to 25%. The first two readings show `SUSPECTED_LEAK`. A balanced reading clears the leak state. Branch restriction never opens a valve beyond a stricter tank limit. Reserve protection closes both commanded valves.
+A branch imbalance above `max(0.3 L/min, 15% of inlet flow)` for three consecutive readings limits the branch valve to 25%. The first two readings show `SUSPECTED_LEAK`. A balanced reading clears the leak state. Branch restriction never opens a valve beyond a stricter tank limit. Reserve protection sets both logical commands to zero. The physical rig has **one** valve: default transfer mode applies the smaller master/branch command, and the receiver float can stop it locally.
 
-**The two meters must straddle the delivery branch.** The first measures withdrawal from the tank into the branch, not refill into the tank. Comparing tank refill with apartment consumption cannot isolate a pipeline leak. See the [architecture notes](docs/architecture.md) for assumptions and the gaps resolved in the original plan.
+**Both meters straddle the same transfer pipe:** source → valve → meter 1 → monitored section/leak tap → meter 2 → receiver. The ultrasonic probe measures the source; the receiver has a binary full-level float rather than a second continuous level sensor. See the [architecture notes](docs/architecture.md) for assumptions. The original 60/120-minute forecast thresholds are retained; at real flow of at least 1 L/min, this small source will normally enter rationing well before the larger-system time thresholds.
 
 ## Deploy the full stack
 
@@ -59,7 +59,9 @@ See [deployment instructions](docs/deployment.md) for credentials, Grafana, LAN 
 
 Read the [hardware and commissioning guide](docs/hardware.md) before wiring and the [firmware guide](firmware/README.md) before flashing. Copy `firmware/esp32/include/config.example.h` to `config.h`, configure credentials and calibration, then use the firmware build script.
 
-Only the JSN-SR04T is used. GPIO pins match the supplied plan. The original plan specifies one relay while describing separate master and branch valves; select the installed valve's role in firmware. Independent actuation requires separately wired actuators and an expanded control topology. There is no pump contactor or pump output in the provided pinout.
+The installed sensor is labelled **AJ-SR04M**. Firmware supports its confirmed ordinary trigger/echo mode (R19 open for the documented version), using a 20 µs trigger, 120 ms sampling, and conservative project bounds of 30–300 cm. GPIOs are TRIG 26, ECHO 34, flow 27/32, float 33, valve relay 25, and unused relay channel 23. Both relay selectors default to HIGH trigger; LOW turns both outputs off. There is one installed valve and no pump output.
+
+**Physical actuation ships disabled** (`WATER_HARDWARE_COMMISSIONED=0`). The two 9 V batteries cannot directly supply the 12 V / 1 A valve, and Robu explicitly excludes that valve from gravity-fed use. The listed resistor `R225229` is 150 Ω, not a 2 kΩ divider resistor. Complete the power, pressure, GPIO-interface, float-orientation, and calibration checks in the [parts and wiring guide](docs/hardware.md) before enabling it. The software demo remains available without physical hardware.
 
 ## Verify
 

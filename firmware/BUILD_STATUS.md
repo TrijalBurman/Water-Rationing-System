@@ -1,6 +1,16 @@
 # Firmware verification
 
-Verified on 2026-09-27 inside this project directory.
+## Current two-tank hardware update — 23 October 2026
+
+The actual configuration is AJ-SR04M trigger/echo, two YF-S201 meters, one P35 float, and one transfer valve on a two-channel relay. Source capacity is 2.5 L, receiver 1.5 L, source usable depth approximately 20 cm, and starting probe standoff 30 cm. The shipped example keeps `WATER_HARDWARE_COMMISSIONED=0`.
+
+Local GCC native checks passed: float open/disconnection and stable-contact recovery, two-second clock-skew barriers, delayed/queued commands, MQTT session changes, millisecond rollover, one-valve source/pipe limits, 48 cm reserve boundary, reserve recovery median reset, duty timing, UTC parsing, and expiry/replay checks. Local ESP32 builds passed for the default inhibited example, a commissioned HIGH-trigger receiver-full profile, and a commissioned LOW-trigger/source-low profile with TLS. Compile-only configurations used dummy credentials and were removed afterward. Windows/native and CI results are recorded in [verification.md](../docs/verification.md).
+
+Serial output at 115200 baud now shows raw AJ distance, float circuit state, local gate reason, relay command, and effective duty once per second, even before networking/time synchronization. It does not print credentials. `nan` distance indicates no valid echo; it is not an empty-tank measurement.
+
+**No physical upload, electrical/acoustic measurements, pressure tests, or wet tests have been performed.** The purchased 12 V / 1 A valve is not gravity-feed rated, and the supplied 9 V batteries do not provide its required supply. Build success does not commission those components.
+
+## Historical implementation — 27 September 2026
 
 | Check | Result |
 | --- | --- |
