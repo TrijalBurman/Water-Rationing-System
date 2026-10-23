@@ -1,5 +1,9 @@
 # Complete System Implementation Plan: Hardware, Backend, and Frontend
 
+> **Historical design plan.** This document preserves the original proposal and contains proposed features and part assumptions that differ from the delivered implementation. Use the [hardware connections and commissioning guide](docs/hardware.md), [firmware guide](firmware/README.md), and [architecture notes](docs/architecture.md) for the implemented system. The schematic in section 1.4 has been corrected; the remaining plan is retained as historical context.
+>
+> **Implemented hardware:** one active-low relay on GPIO 25 controls **either** the master valve **or** one flat valve, as selected in firmware. There is **no pump-control output** and no independently wired second valve channel. Separate master/flat command fields do not add physical outputs. Additional actuation requires an explicitly designed hardware and firmware expansion. Verify sensor/module revision, logic levels, ratings, calibration, and the actual assembled circuit using the current hardware guide.
+
 An end-to-end engineering blueprint from scratch for building the **AI-Powered Smart Water Management and Rationing System**. This plan covers three decoupled tiers: **Hardware Connections (strictly using the JSN-SR04T sensor)**, **Backend Decision Engine**, and **Frontend Flight Recorder & User Interface**.
 
 ---
@@ -83,48 +87,54 @@ $$V_{\text{out}} = V_{\text{in}} \times \frac{R_2}{R_1 + R_2} = 5.0\text{V} \tim
 | | GND | Common GND | 0V | Ground reference |
 | | IN1 | **ESP32 GPIO 25** | 3.3V Logic Out | Active-Low valve control signal |
 | | COM | 12V Supply (+) through 1A Fuse | 12.0V DC | Switched positive power line |
-| | NO (Normally Open)| Solenoid Positive Wire | 12.0V DC (Switched) | Closed when de-energized (failsafe) |
+| | NO (Normally Open)| Solenoid Positive Wire | 12.0V DC (Switched) | Contact open when relay is off; normally closed water valve closes |
 | **12V Solenoid** | Negative Wire | 12V Power Supply (-) | 0V DC | Return path to 12V supply |
 | | Flyback Diode (1N4007) | Antiparallel across Solenoid | Reverse-biased | Cathode (stripe) to 12V (+); Anode to GND |
 
 ---
 
-### 1.4 Detailed Wiring Schematic Diagram
+### 1.4 Corrected simplified wiring schematic
+
+This replaces the earlier illustration, which incorrectly joined switched positive to the negative rail and made the trigger path appear connected to ground. Use the [complete connection table and commissioning checks](docs/hardware.md) for assembly. GPIO labels below are ESP32 GPIO numbers, not physical header positions.
 
 ```text
-                  +5V REGULATED RAIL (2A Supply)
-             ───────────────────────────────┬───────────────────────────────
-                                            │
-        ┌───────────────────┐               ├───────────────────┐
-        │ JSN-SR04T Board   │               │ YF-S201 Flow 1    │
-        │  VCC ─────────────┴───────────────┤ (Red) VCC         │
-        │  GND ─────────────┬───────────────┤ (Black) GND       │
-        │                   │               │ (Yellow) Signal   │
-        │  TRIG ────────┐   │               └────────┬──────────┘
-        │  ECHO ────┐   │   │                        │
-        └───────────┼───┼───┼────────────────────────┼──────────────────────
-                    │   │   │                        ▼
-                    │   │   │                     [ 1kΩ ]
-                    ▼   │   │                        ├───► ESP32 GPIO 27 (Flow In)
-                 [ 1kΩ ]│   │                     [ 2kΩ ]
-                    ├───┼───┼─► ESP32 GPIO 34        │
-                 [ 2kΩ ]│   │   (JSN Echo)           │
-                    │   │   │                        │
-        ────────────┴───┼───┴────────────────────────┴──────────────────────
-                        │  COMMON GROUND (GND RAIL)
-                        │
-                        └───────► ESP32 GPIO 26 (JSN Trig)
+LOGIC / SENSORS
+Regulated 5V --> JSN-SR04T VCC; Flow #1 VCC; Flow #2 VCC
+Logic GND ----> ESP32 GND; all sensor GNDs; all divider lower ends
 
-        12V POWER SUPPLY (3A)
-        (+) ──── [ 1A Fuse ] ──── Relay 1 COM
-                                  Relay 1 NO ────┬──── Solenoid Valve (+)
-                                                 │      [1N4007 Diode]
-                                                 │      Cathode (Stripe)
-                                                 │             ▲
-                                                 │             │
-                                                 │      Anode  │
-        (-) ─────────────────────────────────────┴──── Solenoid Valve (-)
+ESP32 GPIO 26 --> JSN-SR04T TRIG (3.3V trigger; translate if module requires)
+JSN-SR04T ECHO --> divider A input; divider A output --> GPIO 34
+Flow #1 signal --> divider B input; divider B output --> GPIO 27
+Flow #2 signal --> divider C input; divider C output --> GPIO 32
+
+Each of A, B, and C is a SEPARATE divider for a compatible 5V output:
+Sensor signal -- R1 1kΩ --+-- output to its assigned GPIO
+                          |
+                          R2 2kΩ
+                          |
+                          Logic GND
+
+RELAY CONTROL (one physical channel)
+ESP32 GPIO 25 --> 3.3V-compatible active-low interface --> relay IN1
+Relay supply --> its rated supply (normally 5V)
+Relay control GND --> logic GND for the non-isolated interface
+LOW = relay energized / water valve open
+HIGH = relay inactive / water valve closed
+
+12V WATER-VALVE CIRCUIT
+12V (+) -- correctly rated fuse -- relay COM
+                                  relay NO -- solenoid (+)
+                                              [ COIL ]
+12V (-) ------------------------------------- solenoid (-)
+Relay NC: unused
+
+Flyback diode mounted directly across the coil:
+  cathode (striped end) --> solenoid (+), the switched positive node
+  anode                --> solenoid (-), 12V negative
+There is NO direct wire between switched positive and 12V negative.
 ```
+
+The dividers require verified output drive/high levels; open-collector flow-meter variants need an appropriate pull-up/level interface as described in the hardware guide. Do not join the three divider outputs. A relay interface must keep the valve closed during reset and loss of ESP32 power. Choose fuse, diode, relay DC inductive-contact rating, wire, and supply capacity for the actual coil; the original plan's 1A fuse and 1N4007 are not universal selections. Power the ESP32 according to its board's instructions and keep 12V away from all ESP32 pins. Both flow sensors belong on the same outgoing branch with the controlled test leak between them.
 
 ---
 

@@ -75,7 +75,7 @@ If the installed JSN-SR04T requires a trigger high above the ESP32's 3.3V output
 
 ### Correct solenoid circuit
 
-The original plan's ASCII diagram visually joins the switched positive wire to the negative rail. **Do not make that connection.** The coil and flyback diode are the two branches between the switched positive node and the negative rail; there is no wire shorting those nodes together.
+An earlier plan schematic incorrectly joined the switched positive wire to the negative rail and made TRIG appear grounded; both paths are corrected in this guide and the current plan schematic. **Do not connect switched positive directly to the negative rail or TRIG to ground.** The coil and flyback diode are the two branches between the switched positive node and the negative rail; there is no wire shorting those nodes together.
 
 ```text
 12V positive ── fuse ── relay COM
