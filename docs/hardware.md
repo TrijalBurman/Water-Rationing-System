@@ -99,9 +99,9 @@ The two flow sensors measure **the same outgoing branch at two points**. Here, "
 For the default **master role** (`WATER_VALVE_ROLE_MASTER`):
 
 ```text
-Tank outlet → manual shutoff → NC solenoid → Flow #1 → monitored pipe → Flow #2 → outlet
+Tank outlet → manual shutoff → NC solenoid → Flow #1 ──┬── Flow #2 → outlet
                                                        │
-                                              controlled leak tap
+                                                       └── controlled leak tap
 ```
 
 This one valve controls the complete rig's supply and follows `master_valve_percent`. The backend can display a branch leak alert, but its separate `flat_valve_percent` will not actuate this master-role relay.
@@ -109,13 +109,12 @@ This one valve controls the complete rig's supply and follows `master_valve_perc
 For a **flat role** demonstration (`WATER_VALVE_ROLE_FLAT`):
 
 ```text
-Shared supply ──┬── other flats (separate takeoffs)
-                └── manual shutoff → NC solenoid → Flow #1 → pipe → Flow #2 → flat outlet
-                                                             │
-                                                    controlled leak tap
+Branch supply → manual shutoff → NC solenoid → Flow #1 ──┬── Flow #2 → flat outlet
+                                                         │
+                                                         └── controlled leak tap
 ```
 
-The monitored branch's valve follows `flat_valve_percent`, so a sustained leak normally commands 25% duty, or less if tank restrictions require it. Place the valve **before** the leak tap so closing it stops supply to the leak. Every legitimate outlet inside the measured section must also be accounted for by the downstream meter; an unmetered tap between sensors looks like a leak. Keep tank-refill plumbing separate from this measured section. A real shared master valve plus an independently controlled flat valve requires another designed output/controller and integration; changing the role setting does not add a second channel.
+Other flats connect to separate takeoffs from the shared supply upstream of this branch's manual shutoff. The monitored branch's valve follows `flat_valve_percent`, so a sustained leak normally commands 25% duty, or less if tank restrictions require it. Place the valve **before** the leak tap so closing it stops supply to the leak. Every legitimate outlet inside the measured section must also be accounted for by the downstream meter; an unmetered tap between sensors looks like a leak. Keep tank-refill plumbing separate from this measured section. A real shared master valve plus an independently controlled flat valve requires another designed output/controller and integration; changing the role setting does not add a second channel.
 
 ## Probe mounting and tank calibration
 
