@@ -12,13 +12,15 @@ foreach ($candidate in @(
     }
 }
 if (-not $python) {
-    $launcher = Get-Command py.exe -ErrorAction SilentlyContinue
+    $launcher = Get-Command python.exe -ErrorAction SilentlyContinue
     if ($launcher) {
         $python = $launcher.Source
-        $pythonPrefix = @("-3")
     } else {
-        $launcher = Get-Command python.exe -ErrorAction SilentlyContinue
-        if ($launcher) { $python = $launcher.Source }
+        $launcher = Get-Command py.exe -ErrorAction SilentlyContinue
+        if ($launcher) {
+            $python = $launcher.Source
+            $pythonPrefix = @("-3")
+        }
     }
 }
 if (-not $python) {

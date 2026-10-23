@@ -46,6 +46,17 @@ jobs:
               stream.write(str(directory.resolve()) + '\n')
       - name: Backend and portability regression tests
         run: python -m pytest -q
+      - name: Windows launcher argument forwarding
+        if: runner.os == 'Windows'
+        shell: python
+        run: |
+          import subprocess
+          from pathlib import Path
+          for name in ('setup', 'run-demo', 'bootstrap'):
+              for suffix in ('ps1', 'cmd'):
+                  script = Path('scripts') / (name + '.' + suffix)
+                  command = ['pwsh', '-NoProfile', '-File', str(script)] if suffix == 'ps1' else [str(script.resolve())]
+                  subprocess.run(command + ['--help'], check=True)
       - name: Lint
         run: python -m ruff check backend tests scripts firmware/esp32/build.py firmware/esp32/test_native.py
       - name: Formatting
@@ -88,11 +99,21 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - name: Native control-logic tests
+        if: runner.os != 'Windows'
         run: python firmware/esp32/test_native.py
+      - name: Native control-logic tests through PowerShell
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./firmware/esp32/test-native.ps1
       - name: Install firmware tools
         run: python -m pip install platformio==6.1.18
       - name: Compile ESP32 example configuration
+        if: runner.os != 'Windows'
         run: python firmware/esp32/build.py
+      - name: Compile ESP32 through PowerShell
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./firmware/esp32/build.ps1
 
   deployment:
     name: Docker full stack

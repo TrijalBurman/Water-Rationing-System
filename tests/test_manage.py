@@ -21,9 +21,10 @@ def project(tmp_path, monkeypatch):
     # Allow the POSIX branch to be simulated on native Windows CI, too.
     monkeypatch.setattr(manage.os, "getuid", lambda: 1000, raising=False)
     monkeypatch.setattr(manage.os, "getgid", lambda: 1000, raising=False)
-    manage.windows_identity.cache_clear()
+    identity = manage.windows_identity
+    identity.cache_clear()
     yield root
-    manage.windows_identity.cache_clear()
+    identity.cache_clear()
 
 
 def environment_file(project):
@@ -174,6 +175,18 @@ def test_wrong_docker_mode_fails_before_creating_credentials(project, monkeypatc
         manage.bootstrap()
     assert not (project / ".env").exists()
     assert not (project / ".secrets").exists()
+
+
+def test_windows_acl_failures_include_permission_diagnostic(project, monkeypatch):
+    monkeypatch.setattr(manage, "windows", lambda: True)
+    monkeypatch.setattr(manage, "windows_identity", lambda: "*S-1-5-21-123-456")
+    diagnostic = "Set-Acl: Access to this path is denied by the filesystem policy."
+    invoke = Mock(
+        side_effect=subprocess.CalledProcessError(1, ["powershell.exe"], stderr=diagnostic)
+    )
+    monkeypatch.setattr(manage, "run", invoke)
+    with pytest.raises(RuntimeError, match="Access to this path is denied"):
+        manage.restrict(project, directory=True)
 
 
 def test_demo_cli_uses_port_environment_and_validates_range(monkeypatch):

@@ -138,29 +138,41 @@ def restrict(path: Path, *, directory: bool = False) -> None:
             # retain any explicit grants left by an older bootstrap or copy.
             script = (
                 "$ErrorActionPreference = 'Stop'; "
-                "$acl = [System.Security.AccessControl.DirectorySecurity]::new(); "
+                "$acl = Get-Acl -LiteralPath $env:WATERWISE_ACL_PATH; "
+                "$acl.SetAccessRuleProtection($true, $false); "
+                "foreach ($oldRule in @($acl.Access)) { $acl.RemoveAccessRuleSpecific($oldRule) }; "
                 "$sid = [System.Security.Principal.SecurityIdentifier]::new($env:WATERWISE_ACL_SID); "
                 "$rule = [System.Security.AccessControl.FileSystemAccessRule]::new("
                 "$sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow'); "
-                "$acl.SetAccessRuleProtection($true, $false); $acl.AddAccessRule($rule); "
+                "$acl.AddAccessRule($rule); "
                 "Set-Acl -LiteralPath $env:WATERWISE_ACL_PATH -AclObject $acl"
             )
             env = project_environment()
             env.update(WATERWISE_ACL_PATH=str(path), WATERWISE_ACL_SID=identity[1:])
-            run(
+            run_acl(
                 ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
                 env=env,
-                quiet=True,
             )
         else:
             # Every credential file is newly created before this call, so it has
             # no previous explicit grants to retain. Remove inherited access.
-            run(
+            run_acl(
                 ["icacls", str(path), "/inheritance:r", "/grant:r", f"{identity}:F"],
-                quiet=True,
             )
     else:
         path.chmod(0o700 if directory else 0o600)
+
+
+def run_acl(command: list[str], *, env: dict[str, str] | None = None) -> None:
+    try:
+        run(command, env=env, quiet=True)
+    except subprocess.CalledProcessError as error:
+        # ACL utilities receive paths and account IDs only; their diagnostics are
+        # safe to show and explain policy/privilege/filesystem failures on Windows.
+        detail = (error.stderr or error.stdout or f"exit status {error.returncode}").strip()
+        raise RuntimeError(
+            f"Cannot protect local secrets with Windows permissions: {detail}"
+        ) from error
 
 
 def write_private(path: Path, content: str) -> None:
