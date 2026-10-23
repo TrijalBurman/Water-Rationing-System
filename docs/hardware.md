@@ -200,7 +200,7 @@ Set backend `TANK_CAPACITY_L` to the same **2.5 L source** usable capacity and f
 
 For each flow meter, close the leak tap and collect measured water volumes within its supported 1–30 L/min range. Start at 450 pulses/L from Robu's `f = 7.5 × Q` formula, then calibrate separately: `K_new = counted_pulses / collected_litres`. If using reported flow, `K_new = K_old × reported_litres / collected_litres`, with reported litres integrated over actual elapsed time. Repeat across several volumes/rates. Flow below the listed 1 L/min minimum may be unreliable or fail to turn the turbine; code cannot extend the physical meter rating. The seller also states approximately 2.25 mL/pulse, so neither that approximation nor the initial coefficient replaces calibration. Check balance over complete duty cycles as well as steady flow.
 
-Set Wi-Fi, the broker's reachable LAN address, device identity, MQTT credentials, and time synchronization as described in [firmware/README.md](../firmware/README.md). Start the backend in live-hardware mode to prevent simulator readings from competing with the device. Use the portable build/upload procedures in that file or [the Windows guide](https://github.com/TrijalBurman/Water-Rationing-System/blob/windows/docs/windows.md).
+Set Wi-Fi, the broker's reachable LAN address, device identity, MQTT credentials, and time synchronization as described in [firmware/README.md](../firmware/README.md). Start the backend in live-hardware mode to prevent simulator readings from competing with the device. Use the build/upload procedures in that file or [the Windows guide](https://github.com/TrijalBurman/Water-Rationing-System/blob/windows/docs/windows.md).
 
 ## Local stop behavior
 

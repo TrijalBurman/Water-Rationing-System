@@ -1,5 +1,15 @@
 # Verification record
 
+## Actual two-tank update — 23 October 2026
+
+Configured for the owned AJ-SR04M, two flow sensors, receiver float, 2.5 L source and 1.5 L receiver. Source depth is approximately 20 cm; probe standoff starts at 30 cm. `WATER_HARDWARE_COMMISSIONED=0` keeps the relay inhibited until physical checks pass. See [hardware.md](hardware.md) for the updated connections and verified part requirements.
+
+The `trijal` branch passes **115 backend tests** and lint/format checks on the local Linux host. Native C++ checks cover the float stop/recovery, clock skew, stale sessions, immediate source reserve and median recovery. Browser checks for the shared code passed on `windows`, including a real API/UI two-tank scenario and zero automated accessibility violations. ESP32 inhibited and commissioned HIGH/LOW/TLS profiles compiled locally. A fresh cross-platform run is being checked on the Windows branch; its result will be linked here after completion.
+
+No physical GPIO measurements, USB upload, valve pressure/closure tests, or wet commissioning have been performed. The listed batteries and valve cannot operate the described gravity-fed rig as supplied; build/test success does not remove the power, pressure, and signal-interface requirements.
+
+## Historical implementation — 27 September 2026
+
 Verified on **27 September 2026** in the project directory. The local demo uses the same controller, recorder, API, and portal as the hardware deployment.
 
 ## Completed checks
