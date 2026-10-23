@@ -4,16 +4,29 @@ An implementation of the supplied [system plan](implementation_plan.md): ESP32 s
 
 ## Run the working demo
 
-Requires Python 3.12+ and an internet connection for the first dependency install. All local environments, downloads, caches, and data stay in this project directory.
+This **`windows` branch** includes native Windows setup, launchers, credential bootstrap, firmware tooling, and browser checks. The original published baseline is on [`trijal`](https://github.com/TrijalBurman/Water-Rationing-System/tree/trijal). Hardware connections are the same on both branches.
 
-For step-by-step instructions using the restored `/run/media/trijal/HDD/FinalYearProjectByAstra` location, see the [getting started guide](docs/getting-started.md).
+Requires Python 3.12+ and an internet connection for the first dependency install. The local demo runs directly on Windows without Docker, Git Bash, or a WSL shell. Local environments, downloads, caches, and data stay in this project directory.
+
+In **PowerShell**:
+
+```powershell
+git clone --branch windows https://github.com/TrijalBurman/Water-Rationing-System.git
+Set-Location .\Water-Rationing-System
+py -3.12 scripts/manage.py setup
+py -3.12 scripts/manage.py demo --port 8010
+```
+
+Open **http://127.0.0.1:8010**. Keep the terminal running; press **Ctrl+C** to stop. The equivalent launchers are `scripts\setup.ps1`, `scripts\run-demo.ps1`, and `.cmd` versions. The direct Python commands work when PowerShell script execution is restricted. Python 3.12 is used in these examples; a different installed version ≥3.12 can be selected instead. See the [Windows guide](docs/windows.md) for prerequisites, firmware, Docker Desktop, and troubleshooting, or the [getting started guide](docs/getting-started.md) for dashboard use.
+
+On **Linux/macOS**:
 
 ```bash
 ./scripts/setup.sh
-./scripts/run-demo.sh
+PORT=8010 ./scripts/run-demo.sh
 ```
 
-Open **http://127.0.0.1:8000**. If that port is busy, use `PORT=8010 ./scripts/run-demo.sh` and open **http://127.0.0.1:8010**. The portal needs no frontend build step or external CDN. API documentation is at `/docs`.
+Choose a different `--port` if 8010 is busy (or use `PORT=8011` with the shell launcher). The portal needs no frontend build step or external CDN. API documentation is at `/docs`. Recreate `.venv` when moving the project between operating systems; a Linux virtual environment cannot be reused on Windows.
 
 The simulator produces a reading every second. In the portal's admin view, switch among normal supply, a supply warning, rationing, protected reserve, a branch leak, sensor failure, and recovery. The three-sample leak check and five-sample forecast may take a few readings to settle after a change. All displayed history and daily consumption come from readings recorded by the backend.
 
@@ -26,9 +39,9 @@ The local demo binds only to the local machine and needs no API key. It does not
 | Controller and API | `backend/` | Forecasts reserve depletion, detects branch leaks, issues expiring commands, records history and daily use |
 | Resident/admin portal | `frontend/` | Live tank and quota indicators, flow history, leak alerts, hardware status, simulator controls |
 | ESP32 firmware | `firmware/esp32/` | JSN-SR04T median filtering, two flow meters, independent reserve protection, 30-second valve duty cycle |
-| Deployment | `compose.yaml`, `scripts/bootstrap.sh` | FastAPI, Mosquitto 2.0, InfluxDB 2.7, Grafana 11.4 |
+| Deployment | `compose.yaml`, `scripts/manage.py bootstrap` | FastAPI, Mosquitto 2.0, InfluxDB 2.7, Grafana 11.4 |
 | Flight recorder | `grafana/dashboards/water-rationing.json` | Eight provisioned panels, refreshing every five seconds |
-| Verification | `tests/`, `firmware/esp32/test-native.sh` | Controller, API, persistence, and native firmware safety tests |
+| Verification | `tests/`, `scripts/browser_tests.py`, `firmware/esp32/test_native.py` | Controller, API, persistence, portal, accessibility, and native firmware safety tests |
 
 ## Controller behavior
 
@@ -48,12 +61,14 @@ A branch imbalance above `max(0.3 L/min, 15% of inlet flow)` for three consecuti
 
 ## Deploy the full stack
 
-```bash
-./scripts/bootstrap.sh
+On Windows, install and start **Docker Desktop in Linux containers mode**, then run in PowerShell:
+
+```powershell
+py -3.12 scripts/manage.py bootstrap
 docker compose up --build -d
 ```
 
-See [deployment instructions](docs/deployment.md) for credentials, Grafana, LAN access, and switching to physical telemetry. Docker manages images and named data volumes in its own storage, so those two commands are separate from the workspace-contained local demo.
+Linux/macOS can use `python3 scripts/manage.py bootstrap` or `./scripts/bootstrap.sh`, followed by the same Compose command. See [deployment instructions](docs/deployment.md) for credentials, Grafana, LAN access, and switching to physical telemetry. Docker manages images and named data volumes in its own storage. On Windows its Linux backend can use WSL 2 or another supported Docker Desktop backend; the project commands run in PowerShell.
 
 ## Connect hardware
 
@@ -63,13 +78,17 @@ Only the JSN-SR04T is used. GPIO pins match the supplied plan. The original plan
 
 ## Verify
 
-```bash
-.venv/bin/python -m pytest
-.venv/bin/ruff check backend tests
-./firmware/esp32/test-native.sh
+In PowerShell after setup:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m ruff check backend tests
+.\.venv\Scripts\python.exe scripts/browser_tests.py install
+.\.venv\Scripts\python.exe scripts/browser_tests.py run
+py -3.12 firmware/esp32/test_native.py
 ```
 
-Test files, temporary databases, and caches remain under this directory. See [verification notes](docs/verification.md) for completed checks and hardware/deployment checks that still require their target environment.
+Browser checks require Node.js with npm; firmware safety tests require a C++ compiler. The browser runner starts and cleans up its own isolated demo. See the [Windows guide](docs/windows.md) for installation details and [verification notes](docs/verification.md) for Linux commands, recorded results, CI status, and hardware/deployment checks that require their target environment.
 
 ## API at a glance
 

@@ -1,8 +1,27 @@
 # Verification record
 
-Verified on **27 September 2026** in the project directory. The local demo uses the same controller, recorder, API, and portal as the hardware deployment.
+The local demo uses the same controller, recorder, API, and portal as the hardware deployment. Results below distinguish the Windows compatibility work from the earlier implementation checks.
 
-## Completed checks
+## Windows compatibility update — 23 October 2026
+
+The `windows` branch adds native setup/demo/bootstrap entry points, portable browser and firmware wrappers, Windows timezone data, line-ending rules, and Windows instructions. A Linux virtual environment must be recreated on Windows. Documentation and command examples are in the [Windows guide](windows.md).
+
+| Area | Verification status |
+| --- | --- |
+| Windows backend and lint, Python 3.12/3.14 | GitHub Actions configured; result pending |
+| Windows Chromium smoke and accessibility checks | GitHub Actions configured; result pending |
+| Windows native firmware safety tests and ESP32 PlatformIO build | GitHub Actions configured; result pending |
+| Linux backend/lint, browser, native firmware, and ESP32 build | Compatibility regression checks configured in GitHub Actions; result pending |
+| Real full-stack Docker integration | Linux GitHub Actions integration configured; result pending |
+| Docker Desktop, USB upload, and wet hardware on a physical Windows computer | Not verified in this Linux workspace |
+
+Configured CI is not a passing result. Update this table with the actual run/result after CI completes. Linux-host checks do not establish that Docker Desktop networking or physical USB/hardware behavior has passed on Windows.
+
+## Historical implementation verification — 27 September 2026
+
+The following recorded checks were completed on the original Linux computer before the Windows compatibility work.
+
+### Completed checks
 
 | Area | Result |
 | --- | --- |
@@ -26,7 +45,18 @@ The dark redesign was checked with Chromium and axe-core 4.13.0. The visual audi
 
 ## Reproduce the checks
 
-From the project root:
+On Windows, from the project root after installing Python 3.12+:
+
+```powershell
+py -3.12 scripts/manage.py setup
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m ruff check backend tests
+.\.venv\Scripts\python.exe -m ruff format --check backend tests
+py -3.12 firmware/esp32/test_native.py
+py -3.12 firmware/esp32/build.py
+```
+
+Native firmware tests require a supported C++ compiler. Install PlatformIO for the ESP32 build as described in the [firmware guide](../firmware/README.md); the wrapper finds that installed tool. On Linux/macOS:
 
 ```bash
 ./scripts/setup.sh
@@ -41,7 +71,27 @@ See [firmware build details](../firmware/BUILD_STATUS.md) for exact toolchain ve
 
 ### Browser test
 
-This test changes simulator scenarios and **resets local demo history**. Run it against the loopback demo launcher. It refuses a server where demo controls are disabled.
+The portable runner installs the browser dependencies, starts a loopback demo with a fresh isolated data directory, runs smoke/accessibility checks, and stops the server. It preserves existing demo history. Node.js with npm must be installed. No manually running server is required.
+
+PowerShell, after project setup:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/browser_tests.py install
+.\.venv\Scripts\python.exe scripts/browser_tests.py run
+```
+
+Linux/macOS:
+
+```bash
+.venv/bin/python scripts/browser_tests.py install
+.venv/bin/python scripts/browser_tests.py run
+```
+
+Reports, downloads, and screenshots are stored under project runtime/cache directories. The earlier [desktop preview](screenshots/desktop.png) and [mobile preview](screenshots/mobile.png) remain as implementation captures.
+
+### Manually running the browser checks on Linux
+
+The individual browser smoke script changes simulator scenarios and **resets the selected demo's history**. Only run this manual route against a disposable loopback demo; it refuses a server where demo controls are disabled. The portable runner above is the default on either OS.
 
 In one terminal:
 
@@ -69,7 +119,7 @@ The frontend audit is read-only and expects a running demo with recorded telemet
 
 ## Checks requiring their target environment
 
-- The four Docker services were **not launched** during implementation. Docker image/container and named-volume storage resides outside the project directory, which was outside the user's allowed working scope. Compose was validated without launching containers.
+- The four Docker services were **not launched during the September implementation checks**. Docker image/container and named-volume storage resides outside the project directory, which was outside that run's allowed working scope. Compose was validated without launching containers. The October CI table above separately records the new real-stack integration status.
 - The broker ACLs, Influx/Flux queries, and Grafana rendering still need a live full-stack test using the [deployment guide](deployment.md). Automated adapter tests use mocks and do not substitute for this test.
 - Firmware was compiled but **not uploaded to an ESP32**. Actual Wi-Fi/TLS operation, sensor calibration, relay polarity, valve behavior, flow-meter accuracy, and hydraulic leak isolation require the [hardware commissioning checklist](hardware.md).
 - The supplied pinout contains one relay. Independent master and branch actuation requires the additional physical outputs/topology described in the hardware guide. The UI presents controller commands; it cannot confirm physical valve position.

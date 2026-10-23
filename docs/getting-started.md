@@ -6,23 +6,45 @@ These steps run the dark dashboard, backend controller and simulated sensor read
 
 ### 1. Open a terminal in the project folder
 
+On Windows, open **PowerShell** and change to your checkout, for example:
+
+```powershell
+Set-Location "D:\Final Year Project\Water-Rationing-System"
+```
+
+Use your actual folder. For a fresh Windows clone and prerequisites, follow the [Windows guide](windows.md). Commands support project paths with spaces.
+
+On the original Linux computer:
+
 ```bash
 cd /run/media/trijal/HDD/FinalYearProjectByAstra
 ```
 
-The external drive is configured to mount at `HDD` when accessed. See the [drive path repair record](drive-path-repair.md).
+The [drive path repair record](drive-path-repair.md) describes that Linux machine only; those mount-repair scripts are not Windows setup steps.
 
 ### 2. Install dependencies if needed
 
-The project environment has already been prepared on this computer. For the first run on a new machine, or if dependencies are missing, run:
+For the first run on a new machine, or if dependencies are missing, run:
+
+```powershell
+py -3.12 scripts/manage.py setup
+```
+
+On Linux/macOS:
 
 ```bash
 bash scripts/setup.sh
 ```
 
-Setup requires Python 3.12 or newer and internet access for downloads. It creates the Python environment and caches inside this project folder. You do not need to activate the environment manually.
+Setup requires Python 3.12 or newer and internet access for downloads. The Windows examples select Python 3.12; select another installed version ≥3.12 if necessary. Setup creates the Python environment and caches inside this project folder. You do not need to activate the environment manually. Recreate the environment when moving between operating systems; do not copy a Linux `.venv` for use on Windows.
 
 ### 3. Start the project
+
+```powershell
+py -3.12 scripts/manage.py demo --port 8010
+```
+
+On Linux/macOS:
 
 ```bash
 PORT=8010 bash scripts/run-demo.sh
@@ -49,20 +71,20 @@ Press **Ctrl+C** in the server terminal to stop it. Closing only the browser tab
 
 For future runs, use just:
 
-```bash
-cd /run/media/trijal/HDD/FinalYearProjectByAstra
-PORT=8010 bash scripts/run-demo.sh
+```powershell
+py -3.12 scripts/manage.py demo --port 8010
 ```
 
-You do not need to rerun setup each time. Recorded data is kept in the project's `data/` directory.
+Run from your checkout. On Linux/macOS, reuse `PORT=8010 bash scripts/run-demo.sh`. You do not need to rerun setup each time. Recorded data is kept in the project's `data/` directory. Use `--data-dir ".runtime\separate demo"` with the Python launcher to keep another demo's history separately.
 
 ## If it does not start
 
 | What you see | What to do |
 | --- | --- |
-| Folder does not exist | Connect the external drive and confirm the project is available at the `HDD` path above. |
-| Missing Python environment or missing module | Run `bash scripts/setup.sh` from the project folder, then start again. |
-| Address already in use | Try opening the dashboard: another copy may already be running. To use a different port, run `PORT=8011 bash scripts/run-demo.sh` and open `http://127.0.0.1:8011/frontend/`. |
+| Folder does not exist | Confirm your checkout's current drive/folder and quote paths containing spaces. The `/run/media/...` path applies only to the original Linux computer. |
+| Missing Python environment or missing module | Run `py -3.12 scripts/manage.py setup` on Windows or `bash scripts/setup.sh` on Linux/macOS, then start again. |
+| Address already in use | Try opening the dashboard: another copy may already be running. To use a different port, run `py -3.12 scripts/manage.py demo --port 8011` on Windows or `PORT=8011 bash scripts/run-demo.sh` on Linux/macOS, then open `http://127.0.0.1:8011/frontend/`. |
+| PowerShell blocks a `.ps1` launcher | Use the direct Python commands above or the `.cmd` wrappers. |
 | Browser cannot connect | Keep the server terminal open, check it for an error, and use the same port in the browser and launch command. |
 | Readings have stopped | Open **Admin / Operations** and select **Start simulation** if the simulator is stopped. |
 

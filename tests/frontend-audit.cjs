@@ -23,10 +23,14 @@ const { chromium } = require('../.runtime/browser/node_modules/playwright');
     pass('Local display and interface fonts loaded');
     const color=await page.evaluate(()=>getComputedStyle(document.documentElement).backgroundColor);
     console.log('CANVAS '+color);
-    await page.locator('#flow-chart svg').waitFor();
+    // The loading/empty chart also contains an SVG icon. Wait for a populated,
+    // keyboard-enabled plot rather than sending the key while history loads.
+    await page.locator('#flow-chart[tabindex="0"] svg[role="img"]').waitFor();
     await page.locator('#flow-chart').focus();
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'flow-chart');
     await page.keyboard.press('ArrowLeft');
     await page.locator('#chart-tooltip').waitFor({state:'visible'});
+    assert.equal(await page.locator('#chart-crosshair').getAttribute('visibility'),'visible');
     assert.ok((await page.locator('#chart-announcement').textContent()).includes('liters per minute'));
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#chart-tooltip').isVisible(),false);

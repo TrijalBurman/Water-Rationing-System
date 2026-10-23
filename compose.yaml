@@ -9,7 +9,7 @@ services:
     environment:
       APP_MODE: ${APP_MODE:-demo}
       DEMO_AUTOSTART: ${DEMO_AUTOSTART:-true}
-      API_KEY: ${API_KEY:?Run ./scripts/bootstrap.sh first}
+      API_KEY: ${API_KEY:?Run scripts/bootstrap.cmd on Windows or scripts/bootstrap.sh first}
       DATA_DIR: /app/data
       DAILY_QUOTA_L: ${DAILY_QUOTA_L:-150}
       TANK_CAPACITY_L: ${TANK_CAPACITY_L:-200}
@@ -17,9 +17,9 @@ services:
       MQTT_HOST: mosquitto
       MQTT_PORT: 1883
       MQTT_USERNAME: ${MQTT_USERNAME:-backend}
-      MQTT_PASSWORD: ${MQTT_PASSWORD:?Run ./scripts/bootstrap.sh first}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?Run scripts/bootstrap.cmd on Windows or scripts/bootstrap.sh first}
       INFLUX_URL: http://influxdb:8086
-      INFLUX_TOKEN: ${INFLUX_TOKEN:?Run ./scripts/bootstrap.sh first}
+      INFLUX_TOKEN: ${INFLUX_TOKEN:?Run scripts/bootstrap.cmd on Windows or scripts/bootstrap.sh first}
       INFLUX_ORG: ${INFLUX_ORG:-waterwise}
       INFLUX_BUCKET: ${INFLUX_BUCKET:-water_telemetry}
     volumes:
@@ -41,7 +41,7 @@ services:
       - "${MQTT_BIND_ADDRESS:-127.0.0.1}:${MQTT_PORT:-1883}:1883"
     environment:
       MQTT_USERNAME: ${MQTT_USERNAME:-backend}
-      MQTT_PASSWORD: ${MQTT_PASSWORD:?Run ./scripts/bootstrap.sh first}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?Run scripts/bootstrap.cmd on Windows or scripts/bootstrap.sh first}
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./mosquitto/acl:/mosquitto/config/acl:ro
@@ -64,10 +64,10 @@ services:
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
       DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_ADMIN_USER:-waterwise}
-      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_ADMIN_PASSWORD:?Run ./scripts/bootstrap.sh first}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_ADMIN_PASSWORD:?Run scripts/bootstrap.cmd on Windows or scripts/bootstrap.sh first}
       DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG:-waterwise}
       DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET:-water_telemetry}
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN:?Run ./scripts/bootstrap.sh first}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN:?Run scripts/bootstrap.cmd on Windows or scripts/bootstrap.sh first}
       DOCKER_INFLUXDB_INIT_RETENTION: ${INFLUX_RETENTION:-30d}
     volumes:
       - influxdb_data:/var/lib/influxdb2
@@ -86,13 +86,13 @@ services:
       - "${GRAFANA_BIND_ADDRESS:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Run ./scripts/bootstrap.sh first}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Run scripts/bootstrap.cmd on Windows or scripts/bootstrap.sh first}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_DASHBOARDS_MIN_REFRESH_INTERVAL: 5s
       INFLUX_ORG: ${INFLUX_ORG:-waterwise}
       INFLUX_BUCKET: ${INFLUX_BUCKET:-water_telemetry}
-      INFLUX_TOKEN: ${INFLUX_TOKEN:?Run ./scripts/bootstrap.sh first}
+      INFLUX_TOKEN: ${INFLUX_TOKEN:?Run scripts/bootstrap.cmd on Windows or scripts/bootstrap.sh first}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

@@ -1,0 +1,145 @@
+name: Platform compatibility
+
+on:
+  push:
+    branches: [windows, trijal]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  application:
+    name: Application (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: WaterWise Project
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.12', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: WaterWise Project
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Set up project on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/setup.ps1
+      - name: Set up project on Linux
+        if: runner.os != 'Windows'
+        run: python scripts/manage.py setup
+      - name: Select project environment
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          directory = Path('.venv') / ('Scripts' if os.name == 'nt' else 'bin')
+          with open(os.environ['GITHUB_PATH'], 'a', encoding='utf-8') as stream:
+              stream.write(str(directory.resolve()) + '\n')
+      - name: Backend and portability regression tests
+        run: python -m pytest -q
+      - name: Lint
+        run: python -m ruff check backend tests scripts firmware/esp32/build.py firmware/esp32/test_native.py
+      - name: Formatting
+        run: python -m ruff format --check backend tests scripts firmware/esp32/build.py firmware/esp32/test_native.py
+      - uses: actions/setup-node@v4
+        if: matrix.python == '3.12'
+        with:
+          node-version: '22'
+      - name: Install browser checks
+        if: matrix.python == '3.12'
+        run: python scripts/browser_tests.py install
+      - name: Browser integration and accessibility
+        if: matrix.python == '3.12'
+        run: python scripts/browser_tests.py run
+      - name: Browser reports
+        if: always() && matrix.python == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-${{ runner.os }}
+          path: |
+            WaterWise Project/.runtime/browser/server.log
+            WaterWise Project/.runtime/browser/results.json
+            WaterWise Project/.runtime/browser/screenshots/
+            WaterWise Project/.runtime/dark-review/
+          if-no-files-found: ignore
+
+  firmware:
+    name: Firmware (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - name: Native control-logic tests
+        run: python firmware/esp32/test_native.py
+      - name: Install firmware tools
+        run: python -m pip install platformio==6.1.18
+      - name: Compile ESP32 example configuration
+        run: python firmware/esp32/build.py
+
+  deployment:
+    name: Docker full stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      COMPOSE_PROJECT_NAME: waterwise-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate credentials and validate Compose
+        run: python scripts/manage.py bootstrap
+      - name: Start isolated full stack
+        run: docker compose up --build --wait --wait-timeout 240
+      - name: Verify real service integrations
+        shell: python
+        run: |
+          import json
+          import time
+          import urllib.request
+          from pathlib import Path
+          values = dict(line.split('=', 1) for line in Path('.env').read_text().splitlines()
+                        if '=' in line and not line.startswith('#'))
+          def request(path, payload=None):
+              body = json.dumps(payload).encode() if payload else None
+              req = urllib.request.Request('http://127.0.0.1:8000' + path, data=body,
+                  headers={'Content-Type': 'application/json', 'X-API-Key': values['API_KEY']})
+              with urllib.request.urlopen(req, timeout=10) as response:
+                  return json.load(response)
+          health = request('/health/ready')
+          assert health['ready'] and health['mqtt_connected'] and health['influx_connected'], health
+          request('/api/demo', {'action': 'scenario', 'scenario': 'leak'})
+          for _ in range(30):
+              latest = request('/devices/tank-01/latest')
+              if latest['decision']['mode'] == 'LEAK_ALERT':
+                  break
+              time.sleep(1)
+          assert latest['decision']['mode'] == 'LEAK_ALERT', latest
+          assert latest['decision']['flat_valve_percent'] == 25, latest
+          with urllib.request.urlopen('http://127.0.0.1:3000/api/health', timeout=10) as response:
+              assert json.load(response)['database'] == 'ok'
+          print('MQTT, InfluxDB, Grafana, telemetry and leak decisions verified.')
+      - name: Service status on failure
+        if: failure()
+        run: docker compose ps
+      - name: Stop isolated services
+        if: always()
+        run: docker compose down -v

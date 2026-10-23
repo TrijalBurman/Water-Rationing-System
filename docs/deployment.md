@@ -1,16 +1,27 @@
 # Run the complete stack
 
-The stack includes the FastAPI portal and controller, an authenticated Mosquitto 2.0 broker, InfluxDB 2.7, and Grafana 11.4. Docker Compose and Python 3 are required on the host. All four published services bind to `127.0.0.1` by default.
+The stack includes the FastAPI portal and controller, an authenticated Mosquitto 2.0 broker, InfluxDB 2.7, and Grafana 11.4. Docker Compose and Python 3.12+ are required on the host. All four published services bind to `127.0.0.1` by default.
 
-From this project directory:
+On Windows, install/start Docker Desktop in **Linux containers mode**. Run from the project directory in PowerShell:
 
-```bash
-./scripts/bootstrap.sh
+```powershell
+docker version
+py -3.12 scripts/manage.py bootstrap
 docker compose up --build -d
 docker compose ps
 ```
 
-Bootstrap creates random credentials in `.env` and `.secrets/tank-01.env`. It uses Mosquitto's password utility to create `.secrets/mosquitto.passwd`. It never prints passwords and preserves existing credentials on subsequent runs. These generated files are local secrets and must remain excluded from version control. Run bootstrap before starting Compose, because the broker password file must exist.
+The Python launcher can select another installed version ≥3.12 if needed. `scripts\bootstrap.ps1` and `scripts\bootstrap.cmd` are native alternatives. Docker's engine must be running before bootstrap; all container commands can run directly in PowerShell. The Linux images use Docker Desktop's supported Linux backend (such as WSL 2), without needing a WSL shell. See the [Windows setup guide](windows.md).
+
+On Linux/macOS, from this project directory:
+
+```bash
+python3 scripts/manage.py bootstrap
+docker compose up --build -d
+docker compose ps
+```
+
+The existing `./scripts/bootstrap.sh` wrapper remains available. Bootstrap creates random credentials in `.env` and `.secrets/tank-01.env`. It uses Mosquitto's password utility in a Docker container to create `.secrets/mosquitto.passwd`. It never prints passwords and preserves existing credentials on subsequent runs. These generated files are local secrets and must remain excluded from version control. Run bootstrap before starting Compose, because the broker password file must exist.
 
 The initial image downloads and build can take several minutes. The backend starts after the broker and InfluxDB become healthy. By default the stack starts a demo scenario automatically; set `DEMO_AUTOSTART=false` in `.env` if you prefer to start it through the portal.
 
@@ -26,12 +37,16 @@ Open `.env` locally to retrieve the API key and dashboard credentials. Do not pa
 
 ## Service checks
 
-```bash
-curl --fail http://localhost:8000/health
-curl --fail http://localhost:8000/health/ready
-curl --fail http://localhost:8000/devices/tank-01/latest
+PowerShell:
+
+```powershell
+Invoke-RestMethod http://localhost:8000/health
+Invoke-RestMethod http://localhost:8000/health/ready
+Invoke-RestMethod http://localhost:8000/devices/tank-01/latest
 docker compose logs --tail=100 backend mosquitto influxdb grafana
 ```
+
+On Linux/macOS, use `curl --fail` with each URL instead of `Invoke-RestMethod`.
 
 `GET /health` reports whether the application is running and includes integration states. `GET /health/ready` returns HTTP 503 when a configured dependency is unavailable. `GET /devices/{device_id}/latest` returns the most recent telemetry and decision after a device has sent data. `POST /telemetry` accepts validated telemetry; mutation routes require the configured API key. The complete route and payload reference is available at `/docs`.
 
@@ -40,8 +55,8 @@ If Grafana initially shows no data, let the demo produce a few samples, leave So
 ## Live ESP32 operation
 
 1. Set `APP_MODE=live` and `DEMO_AUTOSTART=false` in `.env`.
-2. Set `MQTT_BIND_ADDRESS=0.0.0.0` to make the broker reachable on the computer's trusted LAN. Keep the portal, Grafana, and InfluxDB loopback bindings unless you deliberately need them on your LAN.
-3. Use the generated `tank-01` MQTT username and password from `.secrets/tank-01.env` in the ESP32 private configuration. Set its MQTT host to the computer's LAN address and use the configured published `MQTT_PORT`.
+2. Set `MQTT_BIND_ADDRESS=0.0.0.0` to make the broker reachable on the computer's trusted LAN. On Windows, if needed, allow inbound TCP `MQTT_PORT` (default 1883) in Windows Firewall on the trusted **Private** profile, scoped to the local subnet. Keep the portal, Grafana, and InfluxDB loopback bindings unless you deliberately need them on your LAN.
+3. Use the generated `tank-01` MQTT username and password from `.secrets/tank-01.env` in the ESP32 private configuration. Set its MQTT host to the computer's Wi-Fi/Ethernet LAN IPv4 address (find it with `ipconfig` on Windows) and use the configured published `MQTT_PORT`. Do not use `localhost`, a Docker service name, or a WSL virtual adapter address for the ESP32.
 4. Follow the [hardware guide](hardware.md) and [firmware guide](../firmware/README.md), including level shifting and the relay's safe boot state.
 5. Apply the changed configuration with `docker compose up -d`.
 6. In Grafana, select Source `hardware` and the device receiving live telemetry. Demo history remains available under Source `demo` without mixing with live readings.
@@ -76,7 +91,7 @@ For a different tank capacity, update `TANK_CAPACITY_L`, the firmware calibratio
 
 ## Moving the project directory
 
-Bootstrap finds the project from its own location, and Compose resolves configuration mounts relative to `compose.yaml`. Moving or remounting the directory requires no path edits in these files. Run commands from the project's current location. If the stack was already running, stop it before moving the directory, then run `docker compose up --build -d` from the new location so bind mounts use the new paths.
+Bootstrap finds the project from its own location, and Compose resolves configuration mounts relative to `compose.yaml`. Moving or remounting the directory requires no path edits in these files. Run commands from the project's current location; quote terminal paths containing spaces. If the stack was already running, stop it before moving the directory, then run `docker compose up --build -d` from the new location so bind mounts use the new paths. Recreate local Python virtual environments when changing computers/operating systems. The historical Linux mount-repair scripts are not needed on Windows.
 
 On the same Docker host, the fixed Compose project name `waterwise` keeps the same named data volumes after a directory move. Those volumes live in Docker's storage and are not copied with the project folder.
 
@@ -84,7 +99,7 @@ On the same Docker host, the fixed Compose project name `waterwise` keeps the sa
 
 Docker named volumes retain controller state, broker persistence, InfluxDB data and configuration, and Grafana settings. `docker compose down` stops and removes the containers while preserving these volumes. Avoid `docker compose down -v` unless you intend to erase their data.
 
-```bash
+```powershell
 # Rebuild the backend after a code change.
 docker compose up --build -d
 

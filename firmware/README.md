@@ -4,10 +4,10 @@ The PlatformIO project is in `esp32/`. It uses the plan's JSN-SR04T sensor, two 
 
 ## Configure and build
 
-1. Copy `esp32/include/config.example.h` to `esp32/include/config.h` (ignored by Git).
+1. For a physical device, copy `esp32/include/config.example.h` to `esp32/include/config.h` (ignored by Git). For a build check, leave `config.h` absent: the example configuration compiles without credentials and keeps networking disabled.
 2. Set Wi-Fi credentials, broker LAN address, and MQTT credentials. The repository bootstrap creates the device credentials in `.secrets/tank-01.env`: copy `MQTT_USERNAME`, `MQTT_PASSWORD`, `DEVICE_ID`, and `FLAT_ID` into the corresponding `WATER_*` values. Use a reachable LAN IP for `WATER_MQTT_HOST`, not a Docker service name. To accept a physical ESP32 on your LAN, set `MQTT_BIND_ADDRESS=0.0.0.0` in the root `.env` and restart the broker. Keep access restricted to the intended network.
 3. Select `WATER_VALVE_ROLE_MASTER` or `WATER_VALVE_ROLE_FLAT` to match the single installed valve. Defaults are device `tank-01`, flat `101`, a 200L tank, 150cm usable depth, and 25cm probe standoff. Calibrate these dimensions and both pulse-per-litre values for the actual rig.
-4. With PlatformIO installed, run from the project directory:
+4. With PlatformIO installed, run from the repository root on Linux/macOS:
 
    ```bash
    bash firmware/esp32/build.sh
@@ -16,9 +16,49 @@ The PlatformIO project is in `esp32/`. It uses the plan's JSN-SR04T sensor, two 
    PLATFORMIO_CORE_DIR="$PWD/.platformio" pio device monitor
    ```
 
-The pinned dependencies are Espressif32 platform 6.9.0, PubSubClient 2.8, and ArduinoJson 6.21.5. The example configuration compiles without secrets and leaves networking disabled. A physical pull-up/interface must keep the relay inactive during boot; firmware starts with GPIO 25 HIGH.
+The pinned dependencies are [PlatformIO Core 6.1.18](https://pypi.org/project/platformio/6.1.18/), Espressif32 platform 6.9.0, PubSubClient 2.8, and ArduinoJson 6.21.5. A physical pull-up/interface must keep the relay inactive during boot; firmware starts with GPIO 25 HIGH.
 
-The build wrapper keeps PlatformIO, temporary files, and dependency caches inside `firmware/esp32`. It uses `esp32/.venv/bin/python -m platformio` when a local installation exists, otherwise the installed `pio` command. Using the Python module also works after relocating this project directory. In this workspace a local PlatformIO installation was prepared; use `.venv/bin/python -m platformio device monitor` there if `pio` is not on your PATH.
+The existing Bash wrapper keeps its Linux/macOS behavior. The portable `esp32/build.py` wrapper works on Windows, Linux, and macOS and keeps PlatformIO, temporary files, and dependency caches inside `firmware/esp32`. It looks for PlatformIO in the firmware `.venv`, the repository root `.venv`, the Python interpreter running the script, and then the installed `pio`/`platformio` command. It executes Python modules directly so moving the checkout does not depend on an old `pio` launcher path. All build/upload arguments pass through to `platformio run`.
+
+### Windows setup, build and upload
+
+Use a fresh Windows checkout and Python 3.12 (64-bit); Linux virtual environments and downloaded toolchains must be recreated on Windows. The commands below run in PowerShell from the repository root. A native Windows installation needs no Bash or WSL. [PlatformIO documents Python installation and Windows PATH setup here](https://docs.platformio.org/en/latest/faq/install-python.html).
+
+Create the root virtual environment if the general Windows setup has not already created it, then install the pinned firmware tool:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install platformio==6.1.18
+
+# Compile the example without credentials or an attached board.
+.\.venv\Scripts\python.exe .\firmware\esp32\build.py
+```
+
+For real hardware, copy the example and edit `firmware\esp32\include\config.h` with the values described above before uploading:
+
+```powershell
+Copy-Item .\firmware\esp32\include\config.example.h .\firmware\esp32\include\config.h
+.\firmware\esp32\build.ps1 --target upload --upload-port COM3
+```
+
+Replace `COM3` with the board's port in **Device Manager > Ports (COM & LPT)**; unplug/reconnect the board to identify it. Use a USB data cable. If Windows does not install the driver automatically, identify the USB-to-UART chip on your exact board and use that chip manufacturer's driver, such as CP210x, FTDI, or CH340/CH9102 as applicable. [Espressif's serial connection guide](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/establish-serial-connection.html) explains port identification and links the CP210x/FTDI drivers. Keep serial monitors closed during upload. If the board cannot enter download mode automatically, follow the board's BOOT/EN instructions.
+
+The PowerShell build wrapper forwards arguments and returns the build/upload exit code. If local PowerShell policy blocks `.ps1` files, use the same Python entry point directly:
+
+```powershell
+.\.venv\Scripts\python.exe .\firmware\esp32\build.py --target upload --upload-port COM3
+```
+
+To list ports or monitor the firmware at 115200 baud with the same local PlatformIO directory:
+
+```powershell
+$env:PLATFORMIO_CORE_DIR = Join-Path (Get-Location).Path "firmware\esp32\.platformio"
+.\.venv\Scripts\python.exe -m platformio device list
+.\.venv\Scripts\python.exe -m platformio device monitor --port COM3 --baud 115200
+```
+
+Exit the monitor with Ctrl+C before another upload. Use the Windows PC's reachable LAN IP as the MQTT host on the ESP32; `localhost` refers to the ESP32 itself. Start the broker with its LAN binding enabled and allow its configured listener through Windows Firewall for the intended private network, as described in the main Windows guide.
 
 For encrypted MQTT, configure the broker's TLS listener, set `WATER_MQTT_TLS=1`, change the port (normally 8883), and supply its CA certificate. Hostname/certificate validation stays enabled. The default plain MQTT setup is for a trusted lab LAN.
 
@@ -62,5 +102,29 @@ Run the portable control-logic suite without ESP32 tooling:
 ```bash
 bash firmware/esp32/test-native.sh
 ```
+
+The portable runner also works on Linux/macOS with GCC or Clang:
+
+```bash
+python3 firmware/esp32/test_native.py
+python3 firmware/esp32/test_native.py --cxx clang++
+```
+
+On Windows, install **Build Tools for Visual Studio** with the **Desktop development with C++** workload, then open **Developer PowerShell for Visual Studio** so MSVC and the Windows SDK are available. [Microsoft documents the required compiler environment](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170). From the repository root, run:
+
+```powershell
+.\firmware\esp32\test-native.ps1
+# Equivalent when .ps1 execution is blocked:
+.\.venv\Scripts\python.exe .\firmware\esp32\test_native.py
+```
+
+Alternatively, install MinGW-w64 GCC or Clang with its matching native Windows runtime and put its tools on PATH. Select the compiler explicitly when several are installed; compiler paths containing spaces work without extra shell quoting inside the value:
+
+```powershell
+.\firmware\esp32\test-native.ps1 --cxx g++
+.\.venv\Scripts\python.exe .\firmware\esp32\test_native.py --cxx "C:\Program Files\LLVM\bin\clang++.exe"
+```
+
+`CXX` can also select a compiler executable (without extra compiler flags). The native runner creates `.build\control_logic_test.exe` on Windows and executes it. GCC/Clang compile in strict C++11 mode with warnings as errors; MSVC uses `/std:c++14`, its oldest supported C++ mode, with `/W4 /WX`. Native logic tests do not require PlatformIO, an ESP32, Wi-Fi credentials, or a running broker. An ESP32 cross-compiler cannot replace a host compiler for this suite.
 
 It checks geometry, median outlier rejection, immediate reserve closure, fault caps, boot state, command expiry, duty-cycle phase, millisecond counter rollover, UTC parsing, and replay rejection. Software tests do not validate GPIO voltage, acoustic reflections, relay behavior, valve closure, or hydraulic response. Complete the physical checklist in the hardware guide before wet operation.
