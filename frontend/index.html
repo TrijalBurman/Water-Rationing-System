@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080e18">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="WaterWise smart water monitoring and fair distribution portal.">
+  <title>WaterWise · Water, thoughtfully managed</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="./fonts/manrope.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./fonts/space-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#page-title">Skip to dashboard</a>
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3C9 7 5 11 5 15a7 7 0 0 0 14 0c0-4-4-8-7-12Z"/><path d="M8 15a4 4 0 0 0 4 4"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.7"/><rect x="14" y="3" width="7" height="7" rx="1.7"/><rect x="3" y="14" width="7" height="7" rx="1.7"/><rect x="14" y="14" width="7" height="7" rx="1.7"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m10.3 4.7-8 14A1.5 1.5 0 0 0 3.6 21h16.8a1.5 1.5 0 0 0 1.3-2.3l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v5m0 3h.01"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.6 8A7 7 0 0 1 17 5.6L20 9M4 15l3 3.4A7 7 0 0 0 18.4 16"/></symbol>
+    <symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4m8.4-8.4a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/></symbol>
+    <symbol id="i-water" viewBox="0 0 24 24"><path d="M3 7c3-4 6 4 9 0s6 4 9 0M3 12c3-4 6 4 9 0s6 4 9 0M3 17c3-4 6 4 9 0s6 4 9 0"/></symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 3c-9-1-16 2-16 9a7 7 0 0 0 7 7c7 0 10-7 9-16Z"/><path d="m3 21 12-12M7 17v-6m0 6h6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 4 12 8-12 8V4Z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M12 6.5h5M12 17.5h5"/></symbol>
+  </svg>
+
+  <div class="mobile-scrim" id="mobile-scrim" hidden></div>
+  <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+    <a class="brand" href="#overview" aria-label="WaterWise overview"><span class="brand-icon"><svg><use href="#i-drop"/></svg></span><span>Water<span class="brand-light">Wise</span><small>EVERY DROP COUNTS</small></span></a>
+    <div class="workspace-label">YOUR COMMUNITY</div>
+    <div class="community"><span class="community-icon"><svg class="icon"><use href="#i-grid"/></svg></span><span>Water collective<small>Smart water network</small></span><span class="community-dot"></span></div>
+    <div class="nav-label">WORKSPACE</div>
+    <nav class="navigation">
+      <a href="#overview" class="nav-item active" data-view="overview" aria-current="page"><svg class="icon"><use href="#i-grid"/></svg>Overview</a>
+      <a href="#activity" class="nav-item" data-view="activity"><svg class="icon"><use href="#i-activity"/></svg>Activity & history</a>
+      <a href="#health" class="nav-item" data-view="health"><svg class="icon"><use href="#i-shield"/></svg>System health<span class="nav-health" id="nav-health"></span></a>
+      <a href="#controls" class="nav-item" data-view="controls"><svg class="icon"><use href="#i-settings"/></svg>Operations<span class="nav-tag">ADMIN</span></a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="conservation-note"><svg class="icon"><use href="#i-leaf"/></svg><h3>A little care.<br>A lasting difference.</h3><p>Small choices today keep water flowing for everyone.</p><button class="text-button" id="tips-button">Water-saving tips <svg class="icon"><use href="#i-arrow"/></svg></button></div>
+      <div class="identity"><span class="avatar">WW</span><span id="identity-text">Resident workspace<small>Community member</small></span><span class="identity-indicator"></span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="breadcrumb"><button class="icon-button mobile-menu" id="menu-button" aria-label="Open navigation" aria-expanded="false"><svg class="icon"><use href="#i-menu"/></svg></button><span>Workspace</span><span class="breadcrumb-slash">/</span><strong id="breadcrumb-title">Overview</strong></div>
+      <div class="topbar-actions"><span class="date-label" id="current-date"></span><div class="view-toggle" role="group" aria-label="Workspace perspective"><button class="selected" id="resident-view" aria-pressed="true">Resident</button><button id="admin-view" aria-pressed="false">Admin</button></div></div>
+    </header>
+
+    <div class="page-content">
+      <section class="page-heading"><div><div class="eyebrow">WATER, THOUGHTFULLY MANAGED</div><h1 id="page-title" tabindex="-1">Your water. At a glance.</h1><p id="page-subtitle">A clearer picture of your water, for a better tomorrow.</p></div><div class="heading-actions"><span class="connection-pill" id="connection-pill"><span class="status-dot"></span><span id="connection-label">Connecting</span></span><button class="button button-secondary export-button" id="export-button" aria-label="Export recorded water data"><svg class="icon"><use href="#i-download"/></svg>Export data</button></div></section>
+
+      <div id="api-error" class="notice notice-error" role="alert" hidden><svg class="icon"><use href="#i-alert"/></svg><div><strong id="api-error-title">Unable to reach the water network</strong><p id="api-error-detail"></p></div><button class="button button-small" id="retry-button">Retry</button></div>
+      <div id="alert-banner" class="notice" role="status" hidden><svg class="icon"><use href="#i-alert"/></svg><div><strong id="alert-title"></strong><p id="alert-detail"></p></div><span class="badge" id="alert-badge"></span></div>
+
+      <div class="context-row"><div class="device-select-wrap"><svg class="icon"><use href="#i-drop"/></svg><label class="sr-only" for="device-select">Water tank</label><select id="device-select"><option value="tank-01">Tank 01 · Community supply</option></select><svg class="icon chevron"><use href="#i-down"/></svg></div><div class="telemetry-context"><span class="demo-indicator" id="demo-indicator" hidden>SIMULATED DATA</span><span id="last-updated">Waiting for first reading</span><button class="icon-button refresh-button" id="refresh-button" aria-label="Refresh readings"><svg class="icon"><use href="#i-refresh"/></svg></button></div></div>
+
+      <section id="view-overview" class="view-panel" aria-label="Water overview">
+        <div class="hero-grid">
+          <article class="tank-card">
+            <div class="card-top"><div class="light-card-label"><svg class="icon"><use href="#i-water"/></svg>COMMUNITY TANK</div><span class="tank-mode" id="tank-mode">Awaiting data</span></div>
+            <div class="tank-content"><div class="tank-numbers"><span class="muted-white">Water level</span><div class="level-number"><span id="level-value">—</span><span class="level-unit">%</span></div><div class="tank-volume"><span id="volume-value">—</span> liters in storage</div><div class="tank-caption" id="tank-caption">Your community supply, monitored in real time.</div></div><div class="tank-visual" role="img" aria-label="Tank water level unavailable" id="tank-visual"><div class="tank-plinth" aria-hidden="true"></div><div class="tank-outline"><div class="tank-fill" id="tank-fill"><div class="water-surface"></div><span class="water-spark spark-one"></span><span class="water-spark spark-two"></span><span class="water-spark spark-three"></span></div><div class="tank-grid"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div class="reserve-line"></div></div><span class="reserve-caption"><span></span>10% protected reserve</span></div></div>
+            <div class="tank-footer"><div><svg class="icon"><use href="#i-clock"/></svg><span>Time to reserve<strong id="eta-value">— <small>min</small></strong></span></div><span class="tank-footer-divider"></span><div><svg class="icon"><use href="#i-shield"/></svg><span>Reserve protection<strong id="reserve-status">Awaiting readings</strong></span></div></div>
+          </article>
+
+          <article class="card quota-card"><div class="card-top"><h2>Your daily allowance</h2><span class="subtle-badge" id="quota-period">Today</span></div><div class="quota-body"><div class="quota-ring" id="quota-ring" role="img" aria-label="Daily allowance data unavailable"><svg viewBox="0 0 160 160" aria-hidden="true"><circle class="ring-track" cx="80" cy="80" r="65"/><circle class="ring-progress" id="ring-progress" cx="80" cy="80" r="65"/></svg><div class="quota-center"><svg class="icon"><use href="#i-drop"/></svg><strong id="quota-used">—<small>L</small></strong><span>used today</span></div></div><div class="quota-stats"><div><span class="legend-dot blue"></span><span>Used</span><strong id="used-detail">— L</strong></div><div><span class="legend-dot light-blue"></span><span>Remaining</span><strong id="quota-remaining">— L</strong></div><div class="allowance-total"><span>Daily allowance</span><strong id="quota-total">— L</strong></div></div></div><div class="quota-footnote"><svg class="icon"><use href="#i-leaf"/></svg><span id="quota-note">Every liter saved helps your community.</span></div></article>
+        </div>
+
+        <div class="metrics-grid">
+          <article class="card metric"><div class="metric-top"><span>Supply flow</span><span class="metric-icon blue-icon"><svg class="icon"><use href="#i-water"/></svg></span></div><div class="metric-value"><span id="flow-in-value">—</span><small>L/min</small></div><div class="metric-description">Entering the monitored branch</div><div class="metric-bar"><span id="flow-in-bar"></span></div></article>
+          <article class="card metric"><div class="metric-top"><span>Delivered flow</span><span class="metric-icon mint-icon"><svg class="icon"><use href="#i-drop"/></svg></span></div><div class="metric-value"><span id="flow-out-value">—</span><small>L/min</small></div><div class="metric-description">Reaching your household</div><div class="metric-bar mint"><span id="flow-out-bar"></span></div></article>
+          <article class="card metric"><div class="metric-top"><span>Branch flow balance</span><span class="metric-icon amber-icon"><svg class="icon"><use href="#i-shield"/></svg></span></div><div class="metric-value"><span id="balance-value">—</span><small>L/min difference</small></div><div class="metric-description"><span class="inline-dot" id="balance-dot"></span><span id="balance-status">Waiting for sensor readings</span></div><div class="metric-bar amber"><span id="balance-bar"></span></div></article>
+        </div>
+
+        <div class="detail-grid"><article class="card chart-card"><div class="card-top"><div><h2>Water in motion</h2><p class="card-description">Supply and delivery flow over time</p></div><label class="select-control"><span class="sr-only">Chart time range</span><select id="history-range"><option value="15">Last 15 min</option><option value="60" selected>Last hour</option><option value="360">Last 6 hours</option><option value="1440">Last 24 hours</option></select></label></div><div class="chart-legend"><span><i class="legend-line blue"></i>Supply</span><span><i class="legend-line mint"></i>Delivered</span><span class="chart-unit">L/min</span></div><div class="chart-container" id="flow-chart" aria-label="Supply and delivered water flow history"><div class="chart-empty"><svg class="icon"><use href="#i-activity"/></svg><strong>Waiting for water to flow</strong><span>Your first readings will appear here automatically.</span></div></div><div class="chart-footer"><span><span class="inline-dot"></span><span id="history-caption">Readings are updated every 2 seconds</span></span><button class="text-button" data-open-view="activity">View activity <svg class="icon"><use href="#i-arrow"/></svg></button></div></article>
+
+        <article class="card distribution-card"><div class="card-top"><h2>Supply status</h2><svg class="icon muted-icon"><use href="#i-settings"/></svg></div><p class="card-description">How water is being distributed</p><div class="valve-block"><div class="valve-label"><span>Community valve</span><strong id="master-value">—<small>%</small></strong></div><div class="valve-progress"><span id="master-bar"></span></div><div class="valve-description" id="master-caption">Waiting for controller</div></div><div class="valve-block"><div class="valve-label"><span>Your branch <small id="flat-label"></small></span><strong id="flat-value">—<small>%</small></strong></div><div class="valve-progress mint"><span id="flat-bar"></span></div><div class="valve-description" id="flat-caption">Waiting for controller</div></div><div class="distribution-note"><svg class="icon"><use href="#i-info"/></svg><p>Valves use a 30-second cycle to share supply fairly and protect the reserve.</p></div><button class="distribution-link text-button" data-open-view="health">Check system health <svg class="icon"><use href="#i-arrow"/></svg></button></article></div>
+        <div class="overview-bottom"><span><svg class="icon"><use href="#i-shield"/></svg><span id="overview-health">Continuous monitoring · Local reserve protection</span></span><span>Better together. Drop by drop.</span></div>
+      </section>
+
+      <section id="view-activity" class="view-panel" aria-label="Activity and history" hidden>
+        <div class="card history-card"><div class="card-top"><div><h2>Your water's flight recorder</h2><p class="card-description">Recorded measurements and controller decisions for the selected tank.</p></div><span class="subtle-badge" id="history-count">0 readings</span></div><div class="table-toolbar"><p id="history-window-label">Showing the last hour. Change the time range in Overview.</p><button class="button button-secondary button-small" id="activity-export"><svg class="icon"><use href="#i-download"/></svg>Download CSV</button></div><div class="table-scroll" tabindex="0" role="region" aria-label="Recorded water telemetry. Scroll to explore all readings."><table><thead><tr><th>Time</th><th>Tank level</th><th>Supply</th><th>Delivered</th><th>Master / branch</th><th>Controller mode</th></tr></thead><tbody id="history-table"><tr><td colspan="6" class="empty-table">No telemetry received yet. Start the simulator in Operations or connect your device.</td></tr></tbody></table></div><p class="table-footnote" id="table-footnote">The most recent 100 readings are shown. Export includes all loaded readings.</p></div>
+      </section>
+
+      <section id="view-health" class="view-panel" aria-label="System health" hidden>
+        <div class="health-grid"><article class="card health-card"><div class="health-icon"><svg class="icon"><use href="#i-radio"/></svg></div><h2>Level sensor</h2><p>JSN-SR04T waterproof ultrasonic probe</p><strong class="health-value" id="sensor-health">Awaiting data</strong><div class="health-detail"><span>Echo distance</span><strong id="echo-value">— cm</strong></div><div class="health-detail"><span>Valid echo range</span><strong>20–600 cm</strong></div></article><article class="card health-card"><div class="health-icon"><svg class="icon"><use href="#i-server"/></svg></div><h2>Messaging</h2><p>MQTT hardware communication bridge</p><strong class="health-value" id="mqtt-health">Checking…</strong><div class="health-detail"><span>Telemetry cadence</span><strong>1 second</strong></div><div class="health-detail"><span>Portal refresh</span><strong>2 seconds</strong></div></article><article class="card health-card"><div class="health-icon"><svg class="icon"><use href="#i-activity"/></svg></div><h2>Flight recorder</h2><p>InfluxDB time-series storage</p><strong class="health-value" id="influx-health">Checking…</strong><div class="health-detail"><span>Data source</span><strong id="history-source">—</strong></div><div class="health-detail"><span>Latest reading</span><strong id="health-freshness">—</strong></div></article></div>
+        <article class="card decision-card"><div class="card-top"><h2>What the controller is thinking</h2><span class="badge" id="decision-mode">Awaiting data</span></div><p id="decision-reason">Connect your water monitoring device or start a demo to see the latest decision.</p><div class="decision-facts"><div><span>Tank state</span><strong id="decision-tank">—</strong></div><div><span>Branch state</span><strong id="decision-branch">—</strong></div><div><span>Forecast demand</span><strong id="forecast-demand">— L/min</strong></div><div><span>Leak differential</span><strong id="leak-rate">— L/min</strong></div></div></article>
+        <article class="card safety-card"><svg class="icon"><use href="#i-shield"/></svg><div><h2>Protection close to the source</h2><p>The ESP32 closes the valve below 10% tank level locally. Invalid ultrasonic echoes limit valve duty to 30%. Sustained branch flow loss triggers emergency branch flow after three consecutive readings.</p></div></article>
+      </section>
+
+      <section id="view-controls" class="view-panel" aria-label="Operations" hidden>
+        <div class="operations-grid"><article class="card simulator-card"><div class="card-top"><div><h2>Explore the water network</h2><p class="card-description">Send simulated telemetry through the real decision engine.</p></div><span class="badge" id="simulator-status">Checking…</span></div><div class="notice notice-info demo-notice"><svg class="icon"><use href="#i-info"/></svg><p>Simulation is labeled throughout the portal. Scenario changes affect the demo device and produce actual controller decisions.</p></div><fieldset class="scenario-fieldset" id="scenario-fieldset" disabled><legend>Choose a scenario</legend><div class="scenario-grid" id="scenario-grid"></div></fieldset><div class="simulator-actions"><button class="button button-primary" id="simulator-toggle" disabled><svg class="icon"><use href="#i-play"/></svg><span>Start simulation</span></button><button class="button button-secondary" id="simulator-reset" disabled><svg class="icon"><use href="#i-refresh"/></svg>Reset demo</button></div><p class="form-message" id="simulator-message" role="status">Loading simulator availability…</p></article><article class="card api-card"><div class="card-top"><h2>Operations access</h2><svg class="icon muted-icon"><use href="#i-shield"/></svg></div><p class="card-description">If your server requires an API key, enter it here to run simulator actions.</p><form id="api-key-form"><label for="api-key">API key</label><div class="key-input-wrap"><input id="api-key" type="password" autocomplete="off" placeholder="Enter your server API key"><button type="button" id="key-visibility" aria-label="Show API key">Show</button></div><p class="input-help">Kept only in this tab's session. Never included in exports.</p><button class="button button-secondary" type="submit">Save key</button><button class="text-button clear-key" id="clear-key" type="button">Clear</button><p class="form-message" id="key-message" role="status"></p></form><div class="operations-note"><h3>About this workspace</h3><p>The Admin view exposes demo controls. API authentication is enforced by the server, independently of this display setting.</p></div></article></div>
+      </section>
+
+      <footer class="page-footer"><span><span class="footer-brand">WaterWise</span> · Smart water management</span><span id="footer-device">Monitoring the things that matter.</span></footer>
+    </div>
+  </main>
+
+  <dialog id="tips-dialog" aria-labelledby="tips-title"><div class="dialog-heading"><span class="tips-icon"><svg class="icon"><use href="#i-leaf"/></svg></span><button class="icon-button" id="close-tips" aria-label="Close water-saving tips"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="eyebrow">SMALL CHANGES, SHARED BENEFITS</div><h2 id="tips-title">Make every drop count.</h2><p>Simple habits help keep your community's supply healthy.</p><ul class="tips-list"><li><span>01</span><div><h3>Fix the little drips</h3><p>Report a leaking tap or pipe when you spot it. Small, continuous losses add up.</p></div></li><li><span>02</span><div><h3>Give the tap a break</h3><p>Turn off running water while brushing, shaving, or washing dishes.</p></div></li><li><span>03</span><div><h3>Make a full load worthwhile</h3><p>Run washing machines with full loads and reuse suitable water for plants.</p></div></li><li><span>04</span><div><h3>Keep an eye on your allowance</h3><p>Use your daily reading to understand your habits and plan around supply alerts.</p></div></li></ul><button class="button button-primary" id="tips-done">Back to my water</button></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>

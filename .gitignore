@@ -1,45 +1,20 @@
-# Python
+.venv/
+.cache/
+.runtime/
+.tools/
 __pycache__/
 *.py[cod]
+*.egg-info/
 .pytest_cache/
-.venv/
-venv/
-
-# Environment files
+.ruff_cache/
 .env
 .env.*
 !.env.example
-
-# Node / frontend tooling
+.secrets/
+data/*
+!data/.gitkeep
+firmware/esp32/.pio/
+firmware/esp32/include/config.h
+mosquitto/config/passwords
 node_modules/
-dist/
-build/
-
-# IDE / OS
-.vscode/
-.idea/
-Thumbs.db
-.DS_Store
-
-# Logs and runtime data
-*.log
-data/
-
-# Embedded / firmware build outputs
-.pio/
-*.elf
-*.bin
-*.hex
-
-# Terraform
-.terraform/
-*.tfstate
-*.tfstate.*
-
-# Mosquitto credentials and data
-mosquitto/config/passwords*
-mosquitto/data/
-mosquitto/log/
-
-# Hardware / firmware local configuration
-firmware/**/config.h
+test-results/

@@ -1,3 +1,36 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "waterwise-controller"
+version = "1.0.0"
+description = "Smart water monitoring, reserve protection, and branch leak isolation"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.32,<1",
+  "pydantic>=2.12,<3",
+  "pydantic-settings>=2.6,<3",
+  "paho-mqtt==2.1.0",
+  "influxdb-client>=1.48,<2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3,<10", "httpx>=0.28,<1", "ruff>=0.11,<1"]
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+
 [tool.pytest.ini_options]
-pythonpath = ["backend"]
-testpaths = ["backend/tests"]
+testpaths = ["tests"]
+addopts = "-ra --basetemp=.runtime/pytest"
+cache_dir = ".cache/pytest"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]

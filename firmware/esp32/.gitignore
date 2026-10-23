@@ -1,0 +1,6 @@
+.pio/
+.platformio/
+.venv/
+.cache/
+.build/
+include/config.h

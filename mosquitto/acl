@@ -1,0 +1,9 @@
+# Backend authenticates as a separate principal and controls the full fleet.
+user backend
+topic readwrite #
+topic read $SYS/#
+
+# An ESP32 may only send its own telemetry and receive its own commands.
+user tank-01
+topic write watertank/tank-01/telemetry
+topic read watertank/tank-01/command

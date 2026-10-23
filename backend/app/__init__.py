@@ -1,2 +1,0 @@
-"""Smart water rationing backend."""
-

@@ -1,175 +1,89 @@
-# AI Powered Smart Water Management and Rationing System
+# WaterWise · Smart Water Management
 
-An end-to-end IoT and edge-computing water rationing and leak mitigation system designed for residential complexes and high-density apartments. The system combines dual-flow mass conservation leak detection, depletion forecasting, automated duty-cycle/proportional rationing, and a real-time Grafana telemetry flight recorder.
+An implementation of the supplied [system plan](implementation_plan.md): ESP32 sensing and valve control, a FastAPI decision service, an authenticated MQTT broker, InfluxDB history, Grafana operations dashboard, and a responsive resident/admin portal.
 
----
+## Run the working demo
 
-## 📑 Project Deliverables & Reports
+Requires Python 3.12+ and an internet connection for the first dependency install. All local environments, downloads, caches, and data stay in this project directory.
 
-| Deliverable | Description | File Link |
-| :--- | :--- | :--- |
-| **Review 2 Report** | Complete Project Progress Report for Review 2 | [Water_Rationing_Review2_Report.docx](reports/Water_Rationing_Review2_Report.docx) |
-| **Review 2 Presentation** | Review 2 Progress Presentation Slides | [Review_2_Presentation.pptx](reports/Review_2_Presentation.pptx) |
-| **System Workflow Diagram** | Comprehensive Architectural & Sensor Flowchart | [Workflow.pdf](reports/Workflow.pdf) |
-| **Review 1 Report** | Foundation Report (Problem Formulation & Literature) | [Water_Rationing_Review1_Report.docx](reports/Water_Rationing_Review1_Report.docx) |
-| **Hardware Guide** | JSN-SR04T & YF-S201 Wiring, Calibration, Standoffs | [HARDWARE_AND_CALIBRATION.md](docs/HARDWARE_AND_CALIBRATION.md) |
-| **Commissioning Guide** | Flashing ESP32, Docker bootstrap, and Live Bring-up | [CONNECTION_AND_COMMISSIONING_GUIDE.md](docs/CONNECTION_AND_COMMISSIONING_GUIDE.md) |
+For step-by-step instructions using the restored `/run/media/trijal/HDD/FinalYearProjectByAstra` location, see the [getting started guide](docs/getting-started.md).
 
----
-
-## 🏗️ System Architecture & Data Flow
-
-```text
-       [ JSN-SR04T Ultrasonic Sensor ]        [ Dual YF-S201 Flow Meters ]
-           (Waterproof Tank Level)                 (Upstream & Downstream)
-                      │                                      │
-                      ▼                                      ▼
-             ┌────────────────────────────────────────────────────────┐
-             │               ESP32 Edge Microcontroller               │
-             │  • 1 Hz sampling with median filter (blind zone offset)│
-             │  • Local edge safety cutoff (Level < 10% -> 0% valve)  │
-             │  • Duty-cycle (30s) or PWM proportional valve drive    │
-             └──────────────────────────┬─────────────────────────────┘
-                                        │ MQTT Telemetry (JSON)
-                                        ▼
-                             ┌──────────────────────┐
-                             │ Mosquitto Broker     │
-                             │ (Port 1883, TLS/Auth)│
-                             └──────────┬───────────┘
-                                        │
-             ┌──────────────────────────┴─────────────────────────────┐
-             ▼                                                        ▼
-┌───────────────────────────────┐                        ┌───────────────────────┐
-│ FastAPI Cloud Decision Engine │                        │ InfluxDB 2.7 Time-    │
-│ • Depletion ETA Calculation   │                        │ Series Database       │
-│ • Dual-Flow Leak Differential │                        │ • High-resolution retention
-│ • 3-Cycle Transient Debounce  │                        │ • Telemetry & decisions
-│ • Decoupled Branch Throttling │                        └──────────┬────────────┘
-└──────────────┬────────────────┘                                   │ Flux Queries
-               │ MQTT Command Topic                                 ▼
-               ▼                                         ┌───────────────────────┐
-      [ ESP32 Valve Actuator ]                           │ Grafana 11.4 Dashboard│
-  (Master & Individual Flat Valves)                      │ • 8 Flight-Recorder   │
-                                                         │   Telemetry Panels    │
-                                                         └───────────────────────┘
+```bash
+./scripts/setup.sh
+./scripts/run-demo.sh
 ```
 
----
+Open **http://127.0.0.1:8000**. If that port is busy, use `PORT=8010 ./scripts/run-demo.sh` and open **http://127.0.0.1:8010**. The portal needs no frontend build step or external CDN. API documentation is at `/docs`.
 
-## ⚡ Key Engineering Features
+The simulator produces a reading every second. In the portal's admin view, switch among normal supply, a supply warning, rationing, protected reserve, a branch leak, sensor failure, and recovery. The three-sample leak check and five-sample forecast may take a few readings to settle after a change. All displayed history and daily consumption come from readings recorded by the backend.
 
-1. **Dual-Flow Mass Conservation Leak Detection**:
-   $$\Delta Q = Q_{\text{in}} - Q_{\text{out}}$$
-   Monitors the differential between branch input and fixture outlet. Debounces transient air pockets or turbine inertia over 3 consecutive sample cycles before raising a confirmed leak flag.
-2. **Decoupled Flat Isolation**:
-   When a branch fracture is confirmed, the system throttles that specific flat to **25%** emergency flow while keeping the **Master Tank Valve at 100%**, preventing supply starvation for unaffected residents.
-3. **Dynamic Depletion ETA Forecasting**:
-   $$\text{ETA} = \frac{V_{\text{current}} - V_{\text{reserve}}}{\overline{Q}_{5\text{sample}}}$$
-   Classifies supply state into `NORMAL` ($\text{ETA} > 120\text{ min}$), `WARNING` ($60-120\text{ min}$), `RATIONING` ($< 60\text{ min}$), `CRITICAL` ($< 10\%$), or `SENSOR_FAULT`.
-4. **Autonomous Edge Safety**:
-   If tank volume breaches the 10% reserve threshold or cloud connectivity drops, ESP32 firmware autonomously closes the valve locally without relying on network commands.
+The local demo binds only to the local machine and needs no API key. It does not send MQTT valve commands. The deployment configuration generates an API key for changes made through the portal or API.
 
----
+## Included
 
-## 🚀 Quick Start Guide
+| Component | Location | What it does |
+| --- | --- | --- |
+| Controller and API | `backend/` | Forecasts reserve depletion, detects branch leaks, issues expiring commands, records history and daily use |
+| Resident/admin portal | `frontend/` | Live tank and quota indicators, flow history, leak alerts, hardware status, simulator controls |
+| ESP32 firmware | `firmware/esp32/` | JSN-SR04T median filtering, two flow meters, independent reserve protection, 30-second valve duty cycle |
+| Deployment | `compose.yaml`, `scripts/bootstrap.sh` | FastAPI, Mosquitto 2.0, InfluxDB 2.7, Grafana 11.4 |
+| Flight recorder | `grafana/dashboards/water-rationing.json` | Eight provisioned panels, refreshing every five seconds |
+| Verification | `tests/`, `firmware/esp32/test-native.sh` | Controller, API, persistence, and native firmware safety tests |
 
-### Prerequisites
-- Docker Engine & Docker Compose
-- Python 3.10+ (for tests & simulator)
-- PlatformIO (if flashing physical ESP32)
+## Controller behavior
 
-### 1. Stack Initialization
-Run the automated bootstrap script to generate environment configs and Mosquitto credentials:
+The protected reserve is 10% of configured capacity (20 L for a 200 L tank). The average of the last five delivery-inlet flow readings predicts minutes to reserve.
+
+| Tank condition, evaluated in order | Master valve duty |
+| --- | --- |
+| Below 10% reserve | 0% |
+| Invalid ultrasonic reading | At most 30% |
+| Level below 25%, or forecast below 60 minutes | `max(20, level_percent)`% |
+| Forecast from 60 to below 120 minutes | 100%, warning |
+| Otherwise | 100% |
+
+A branch imbalance above `max(0.3 L/min, 15% of inlet flow)` for three consecutive readings limits the branch valve to 25%. The first two readings show `SUSPECTED_LEAK`. A balanced reading clears the leak state. Branch restriction never opens a valve beyond a stricter tank limit. Reserve protection closes both commanded valves.
+
+**The two meters must straddle the delivery branch.** The first measures withdrawal from the tank into the branch, not refill into the tank. Comparing tank refill with apartment consumption cannot isolate a pipeline leak. See the [architecture notes](docs/architecture.md) for assumptions and the gaps resolved in the original plan.
+
+## Deploy the full stack
+
 ```bash
 ./scripts/bootstrap.sh
+docker compose up --build -d
 ```
 
-### 2. Launch Services
-Start Mosquitto, InfluxDB, FastAPI Backend, and Grafana:
+See [deployment instructions](docs/deployment.md) for credentials, Grafana, LAN access, and switching to physical telemetry. Docker manages images and named data volumes in its own storage, so those two commands are separate from the workspace-contained local demo.
+
+## Connect hardware
+
+Read the [hardware and commissioning guide](docs/hardware.md) before wiring and the [firmware guide](firmware/README.md) before flashing. Copy `firmware/esp32/include/config.example.h` to `config.h`, configure credentials and calibration, then use the firmware build script.
+
+Only the JSN-SR04T is used. GPIO pins match the supplied plan. The original plan specifies one relay while describing separate master and branch valves; select the installed valve's role in firmware. Independent actuation requires separately wired actuators and an expanded control topology. There is no pump contactor or pump output in the provided pinout.
+
+## Verify
+
 ```bash
-docker compose --env-file .env up --build -d
+.venv/bin/python -m pytest
+.venv/bin/ruff check backend tests
+./firmware/esp32/test-native.sh
 ```
 
-Service URLs:
-- **FastAPI API**: http://localhost:8000
-- **API Swagger Docs**: http://localhost:8000/docs
-- **Grafana Flight Recorder**: http://localhost:3000 *(Username: `admin`, Password: set in `.env`)*
-- **InfluxDB Console**: http://localhost:8086
+Test files, temporary databases, and caches remain under this directory. See [verification notes](docs/verification.md) for completed checks and hardware/deployment checks that still require their target environment.
 
-### 3. Run Validation Tests
-Run the unit test suite covering controller decisions, leak detection, and edge cases:
-```bash
-pytest
-```
-*(Or inside Docker: `docker compose run --rm api pytest -q`)*
+## API at a glance
 
-### 4. Interactive Simulation & Leak Demo
-To test Grafana telemetry and valve responses without physical hardware:
+| Route | Purpose |
+| --- | --- |
+| `POST /telemetry` | Validate a reading and return the controller decision |
+| `GET /health` | Service status and ingestion/write counters |
+| `GET /health/ready` | HTTP 503 when a configured dependency is unavailable |
+| `GET /devices/{device_id}/latest` | Reading, decision, freshness, and today's quota |
+| `GET /devices/{device_id}/history?minutes=60` | Chart data; at most 1,500 points |
+| `GET /api/overview` | Device summaries and service status |
+| `GET /api/demo` | Simulator state and available scenarios |
+| `POST /api/demo` | Start, stop, choose a scenario, or reset local demo history |
 
-- **Run Standard Depletion Sequence**:
-  ```bash
-  python3 tools/simulate.py
-  ```
-- **Run Live Leak Detection & Mitigation Sequence**:
-  ```bash
-  python3 tools/demo_leak.py
-  ```
+Write routes require `X-API-Key` when `API_KEY` is configured. Reads are intended for a trusted local deployment. Demo controls are unavailable in live mode. See [API examples](docs/api.md).
 
----
-
-## 📁 Repository Structure
-
-```text
-├── backend/
-│   ├── app/
-│   │   ├── controller.py       # Core rationing & leak detection decision engine
-│   │   ├── influx_store.py     # InfluxDB 2.x time-series client
-│   │   ├── main.py             # FastAPI REST endpoints & lifespan hooks
-│   │   ├── mqtt_bridge.py      # Paho MQTT bidirectional bridge
-│   │   ├── schemas.py          # Pydantic v2 telemetry and decision schemas
-│   │   └── settings.py         # Environment configuration
-│   ├── tests/
-│   │   └── test_controller.py  # 9 comprehensive unit tests
-│   ├── Dockerfile              # Production Python 3.12 container definition
-│   └── requirements.txt        # Backend dependencies
-├── firmware/
-│   └── esp32/
-│       ├── include/
-│       │   └── config.example.h # Hardware pinout & calibration template
-│       ├── src/
-│       │   └── main.cpp         # ESP32 C++ firmware (Median filter, Dual flow, MQTT)
-│       └── platformio.ini       # PlatformIO build configuration
-├── grafana/
-│   ├── dashboards/
-│   │   └── water-rationing.json # Provisioned 8-panel flight recorder dashboard
-│   └── provisioning/
-│       ├── dashboards/          # Auto-load dashboard provider config
-│       └── datasources/         # InfluxDB Flux datasource config
-├── mosquitto/
-│   └── config/
-│       └── mosquitto.conf       # Eclipse Mosquitto broker configuration
-├── reports/
-│   ├── Water_Rationing_Review2_Report.docx  # Review 2 submission report
-│   ├── Review_2_Presentation.pptx          # Review 2 presentation slide deck
-│   ├── Water_Rationing_Review1_Report.docx  # Review 1 submission report
-│   ├── Workflow.pdf                        # System workflow diagrams
-│   ├── templates/                          # University review document templates
-│   └── work/                               # Rendered report pages and review assets
-├── tools/
-│   ├── demo_leak.py            # Terminal demo of dual-flow leak detection
-│   └── simulate.py             # End-to-end telemetry playback simulator
-├── docs/                       # Technical hardware & calibration documentation
-├── scripts/                    # Bootstrap & deployment helper scripts
-├── docker-compose.yml          # Multi-container orchestration definition
-└── Makefile                    # Convenience shortcuts
-```
-
----
-
-## 👥 Team Branches
-
-- `main`: Production integration branch.
-- `trijal`: Trijal Burman (Backend, Leak Detection, Edge Firmware, Flight Recorder).
-- `hardik`: Hardik's working branch.
-- `gayatri`: Gayatri's working branch.
-- `prashant`: Prashant's working branch.
+The forecasting algorithm is the deterministic rolling average specified in the plan. This project does not claim to contain a trained machine-learning model or a validated consumption prediction model.
