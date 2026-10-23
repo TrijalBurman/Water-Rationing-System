@@ -136,16 +136,20 @@ def restrict(path: Path, *, directory: bool = False) -> None:
         if directory:
             # Replace the directory DACL in one operation: /grant:r alone would
             # retain any explicit grants left by an older bootstrap or copy.
+            # Use .NET Framework methods directly so inherited PowerShell 7
+            # module paths cannot break Windows PowerShell 5.1 ACL handling.
             script = (
                 "$ErrorActionPreference = 'Stop'; "
-                "$acl = Get-Acl -LiteralPath $env:WATERWISE_ACL_PATH; "
+                "$acl = [System.IO.Directory]::GetAccessControl($env:WATERWISE_ACL_PATH); "
                 "$acl.SetAccessRuleProtection($true, $false); "
-                "foreach ($oldRule in @($acl.Access)) { $acl.RemoveAccessRuleSpecific($oldRule) }; "
+                "$oldRules = $acl.GetAccessRules($true, $false, "
+                "[System.Security.Principal.SecurityIdentifier]); "
+                "foreach ($oldRule in $oldRules) { $acl.RemoveAccessRuleSpecific($oldRule) }; "
                 "$sid = [System.Security.Principal.SecurityIdentifier]::new($env:WATERWISE_ACL_SID); "
                 "$rule = [System.Security.AccessControl.FileSystemAccessRule]::new("
                 "$sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow'); "
                 "$acl.AddAccessRule($rule); "
-                "Set-Acl -LiteralPath $env:WATERWISE_ACL_PATH -AclObject $acl"
+                "[System.IO.Directory]::SetAccessControl($env:WATERWISE_ACL_PATH, $acl)"
             )
             env = project_environment()
             env.update(WATERWISE_ACL_PATH=str(path), WATERWISE_ACL_SID=identity[1:])

@@ -200,8 +200,11 @@ def test_demo_cli_uses_port_environment_and_validates_range(monkeypatch):
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires native Windows NTFS ACLs")
-def test_windows_private_files_remove_broad_permissions(project):
+def test_windows_private_files_remove_broad_permissions(project, monkeypatch):
     """Run the real Windows ACL utilities, including an existing explicit grant."""
+    # PowerShell 7 hosts can pass incompatible module paths to Windows PowerShell
+    # 5.1. The permission implementation must work without module loading.
+    monkeypatch.setenv("PSModulePath", str(project / "no PowerShell modules"))
     directory = project / ".secrets"
     directory.mkdir()
     manage.run(["icacls", str(directory), "/grant", "*S-1-1-0:(OI)(CI)R"], quiet=True)
@@ -213,7 +216,9 @@ def test_windows_private_files_remove_broad_permissions(project):
     assert private.read_bytes() == "# Café\nAPI_KEY=local-test-value\n".encode()
     script = (
         "$ErrorActionPreference = 'Stop'; "
-        "$acl = Get-Acl -LiteralPath $env:WATERWISE_ACL_PATH; "
+        "if ([System.IO.Directory]::Exists($env:WATERWISE_ACL_PATH)) { "
+        "$acl = [System.IO.Directory]::GetAccessControl($env:WATERWISE_ACL_PATH) "
+        "} else { $acl = [System.IO.File]::GetAccessControl($env:WATERWISE_ACL_PATH) }; "
         "if (-not $acl.AreAccessRulesProtected) { exit 1 }; "
         "$rules = @($acl.GetAccessRules($true, $true, "
         "[System.Security.Principal.SecurityIdentifier])); "
