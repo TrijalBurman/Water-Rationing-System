@@ -36,7 +36,7 @@ SCENARIOS = [
     {
         "id": "sensor_fault",
         "label": "Sensor fault",
-        "description": "Missing JSN-SR04T echo caps flow at 30%.",
+        "description": "Missing ultrasonic echo caps flow at 30%.",
     },
     {
         "id": "recovery",
@@ -115,6 +115,14 @@ class DemoSimulator:
             "recovery": (82, 0.60, 0.59),
         }
         level, flow_in, flow_out = parameters[self.scenario]
+        # Preserve the intended demonstration ETA at any configured capacity.
+        # These synthetic low flows are not a claim of YF-S201 low-flow accuracy.
+        # The leak uses a real absolute differential above the 0.3 L/min floor;
+        # on the 2.5L rig source rationing therefore also takes precedence.
+        if self.scenario != "leak":
+            scale = self.service.settings.tank_capacity_l / 200.0
+            flow_in *= scale
+            flow_out *= scale
         ripple = 1 + 0.025 * math.sin(self.counter / 4)
         fault = self.scenario == "sensor_fault"
         telemetry = Telemetry(
@@ -125,7 +133,7 @@ class DemoSimulator:
             volume_l=level / 100 * self.service.settings.tank_capacity_l,
             flow_lpm=round(flow_in * ripple, 4),
             flow_out_lpm=round(flow_out * ripple, 4),
-            ultrasonic_distance_cm=None if fault else round(25 + 150 * (1 - level / 100), 2),
+            ultrasonic_distance_cm=None if fault else round(30 + 20 * (1 - level / 100), 2),
             sensor_status="fault" if fault else "ok",
             valve_percent=self.last_valve,
         )

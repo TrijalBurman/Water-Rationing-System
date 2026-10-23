@@ -130,10 +130,25 @@ class InfluxRecorder:
             "flow_out_lpm",
             "ultrasonic_distance_cm",
             "valve_percent",
+            "requested_valve_percent",
+            "receiver_capacity_l",
         ):
-            if telemetry[name] is not None:
+            if telemetry.get(name) is not None:
                 point.field(name, float(telemetry[name]))
         point.field("sensor_status", telemetry["sensor_status"])
+        # Explicit types also support older snapshots that predate these fields.
+        for name in (
+            "hardware_profile",
+            "level_sensor_model",
+            "float_switch_role",
+            "float_switch_state",
+            "local_stop_reason",
+        ):
+            if telemetry.get(name) is not None:
+                point.field(name, str(telemetry[name]))
+        for name in ("transfer_permitted", "relay_energized"):
+            if telemetry.get(name) is not None:
+                point.field(name, bool(telemetry[name]))
         for name, value in decision.items():
             if value is not None:
                 # A stable float type avoids field conflicts between 0 and 100%.

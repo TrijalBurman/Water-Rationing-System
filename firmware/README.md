@@ -1,12 +1,14 @@
 # ESP32 firmware
 
-The PlatformIO project is in `esp32/`. It uses the plan's JSN-SR04T sensor, two YF-S201 flow sensors, and one active-low relay on an ESP32 Dev Module. Read [the wiring and commissioning guide](../docs/hardware.md) before powering hardware.
+The PlatformIO project is in `esp32/`, targeting a classic ESP32 Dev Module. The owned rig uses an **AJ-SR04M**, two Robu `43647` YF-S201 flow sensors, a `610733` P35 float, channel 1 of the `1121234` relay module, and one `31396` normally closed valve. The source is **2.5 L**, the receiver **1.5 L**, and source usable depth is approximately **20 cm**. Read [the parts, wiring, and commissioning guide](../docs/hardware.md) before powering hardware.
+
+Physical actuation defaults to **disabled** (`WATER_HARDWARE_COMMISSIONED=0`). A two-9 V battery arrangement cannot directly power the 12 V / 1 A valve; the seller also excludes that valve from gravity-fed use. Complete the guide's power, pressure, signal-interface, float, and calibration checks before setting commissioning to 1. The default compiles for inspection and sensing setup without claiming that the hardware is ready.
 
 ## Configure and build
 
 1. For a physical device, copy `esp32/include/config.example.h` to `esp32/include/config.h` (ignored by Git). For a build check, leave `config.h` absent: the example configuration compiles without credentials and keeps networking disabled.
 2. Set Wi-Fi credentials, broker LAN address, and MQTT credentials. The repository bootstrap creates the device credentials in `.secrets/tank-01.env`: copy `MQTT_USERNAME`, `MQTT_PASSWORD`, `DEVICE_ID`, and `FLAT_ID` into the corresponding `WATER_*` values. Use a reachable LAN IP for `WATER_MQTT_HOST`, not a Docker service name. To accept a physical ESP32 on your LAN, set `MQTT_BIND_ADDRESS=0.0.0.0` in the root `.env` and restart the broker. Keep access restricted to the intended network.
-3. Select `WATER_VALVE_ROLE_MASTER` or `WATER_VALVE_ROLE_FLAT` to match the single installed valve. Defaults are device `tank-01`, flat `101`, a 200L tank, 150cm usable depth, and 25cm probe standoff. Calibrate these dimensions and both pulse-per-litre values for the actual rig.
+3. Keep `WATER_VALVE_ROLE_TRANSFER` for this one source-to-receiver valve; it applies `min(master_valve_percent, flat_valve_percent)`. Defaults are device `tank-01`, flat `101`, source 2.5 L, receiver 1.5 L, approximate source usable depth 20 cm, and starting probe standoff 30 cm. These imply full/empty distances 30/50 cm and a 10% reserve boundary at 48 cm (0.25 L). Measure the actual geometry and calibrate both 450-pulses/L starting values. Keep `WATER_HARDWARE_COMMISSIONED=0` until all physical checks pass. Review [hardware_config.h](esp32/include/hardware_config.h) when reusing an older private `config.h`; fallback defaults are not hardware auto-detection.
 4. With PlatformIO installed, run from the repository root on Linux/macOS:
 
    ```bash
@@ -16,7 +18,7 @@ The PlatformIO project is in `esp32/`. It uses the plan's JSN-SR04T sensor, two 
    PLATFORMIO_CORE_DIR="$PWD/.platformio" pio device monitor
    ```
 
-The pinned dependencies are [PlatformIO Core 6.1.18](https://pypi.org/project/platformio/6.1.18/), Espressif32 platform 6.9.0, PubSubClient 2.8, and ArduinoJson 6.21.5. A physical pull-up/interface must keep the relay inactive during boot; firmware starts with GPIO 25 HIGH.
+The pinned dependencies are [PlatformIO Core 6.1.18](https://pypi.org/project/platformio/6.1.18/), Espressif32 platform 6.9.0, PubSubClient 2.8, and ArduinoJson 6.21.5. Default `WATER_RELAY_ACTIVE_HIGH=1` requires **both relay trigger selectors HIGH**. Firmware starts GPIO 25 and the unused GPIO 23 LOW/off; a qualified hardware interface/off bias must also keep both inactive before firmware runs and when ESP32 power is absent. The seller's 3.3 V trigger chart does not establish safe input current or absence of 5 V backfeed. The optional active-low setting requires matching LOW selectors and a correspondingly safe inactive interface.
 
 The existing Bash wrapper keeps its Linux/macOS behavior. The portable `esp32/build.py` wrapper works on Windows, Linux, and macOS and keeps PlatformIO, temporary files, and dependency caches inside `firmware/esp32`. It looks for PlatformIO in the firmware `.venv`, the repository root `.venv`, the Python interpreter running the script, and then the installed `pio`/`platformio` command. It executes Python modules directly so moving the checkout does not depend on an old `pio` launcher path. All build/upload arguments pass through to `platformio run`.
 
@@ -61,18 +63,37 @@ Exit the monitor with Ctrl+C before another upload. Use the Windows PC's reachab
 
 For encrypted MQTT, configure the broker's TLS listener, set `WATER_MQTT_TLS=1`, change the port (normally 8883), and supply its CA certificate. Hostname/certificate validation stays enabled. The default plain MQTT setup is for a trusted lab LAN.
 
+Serial monitoring at 115200 baud reports raw distance, float state, stop reason, relay command, and effective duty once per second even before Wi-Fi/NTP succeeds. This supports dry checks while commissioning remains disabled. A `nan` echo is unavailable data, not an empty tank.
+
 ## Runtime behavior
 
-- Trigger/echo: GPIO 26/34; flow in/out: GPIO 27/32; relay: GPIO 25. There is no second relay or pump-control pin.
-- Echo edges and flow pulses use interrupts. Echoes are sampled every 120ms with a 40ms timeout and median of five valid samples; no long blocking echo waits occur in the control loop.
-- The relay closes on the first valid raw reading below 10%, even when its median is still higher. It remains closed before the first good median. A sensor fault resets the median window, keeps the last trusted level, and caps an otherwise valid command at 30%; the reserve lock still wins.
-- Commands are time-proportioned over a stable 30-second period. For example, 25% opens for 7.5 seconds and closes for 22.5 seconds. This is a duty percentage, not a measured flow percentage or proportional valve position. Incoming 1Hz commands do not restart the period.
-- Network connection work runs on a separate ESP32 core. Local sensing and reserve closure continue through DNS, Wi-Fi, TLS, and MQTT outages. A command expires at its stated UTC expiry or after 10 seconds without a replacement, whichever is earlier. A connection loss therefore closes the valve within that bound; reserve shutdown remains immediate when sampled.
-- NTP must synchronize before MQTT starts or telemetry is published. Until then, the valve stays closed. There is no buffer of historical telemetry: only the latest measurement is sent after reconnection.
+- GPIO 26 triggers the AJ-SR04M and GPIO 34 captures echo. The two flow inputs are GPIO 27/32. Float GPIO 33 uses `INPUT_PULLUP`; closed to GND means permit, open/full/disconnected means stop. GPIO 25 controls the installed valve relay; GPIO 23 holds the unused second channel inactive. There is no second valve or pump output.
+- Use the identified AJ board's ordinary trigger/echo mode, documented as R19 open. Trigger duration is 20 µs, sample interval 120 ms, echo timeout 40 ms, and filtering uses five valid samples. The accepted 30–300 cm distance range is a conservative project envelope, not an identification or universal sensor specification. Verify the actual board's mode, supply, ECHO voltage, and TRIG threshold before GPIO connection.
+- The receiver float stops transfer locally on an open circuit. Release requires **500 ms continuously closed contact and a new command issued more than two seconds after recovery (covering allowed clock skew)**. A queued command from before a stop or MQTT reconnect cannot reopen the valve. Configure `WATER_FLOAT_ROLE_SOURCE_LOW` only if deliberately moving the float to source-low protection; one float cannot measure both locations.
+- The relay remains off while uncommissioned, before a trusted source-level median, without a valid clock/live command, or when the float gate stops transfer. A credible raw reading below 10% closes on that sample without waiting for the median. A sensor fault resets the median, retains the last trusted level, and caps an otherwise permitted command at 30%; reserve closure takes priority. Uncommissioned level/volume estimates are not calibrated measurements.
+- Default transfer role applies the smaller master/flat command. Advanced master-only and flat-only roles remain available for explicitly different installations; they do not create additional actuators. A critical source command closes the installed valve in every role.
+- Commands are time-proportioned over a stable 30-second period: 25% means 7.5 seconds energized and 22.5 seconds off. It is not measured hydraulic flow or proportional valve position. Incoming 1 Hz commands do not restart the period. Verify actual valve/relay duty suitability and closing behavior.
+- Network connection work runs on another ESP32 core, leaving local protection active. A detected offline/reconnect state invalidates the current command; a new session needs a new valid command. Command expiry or 10 seconds without replacement also closes the output. NTP must synchronize before MQTT starts or telemetry is published. Only the latest measurement is sent after reconnection.
 
 ## MQTT contract
 
-Telemetry is published once per second to `watertank/<device_id>/telemetry` with QoS 0 and `retain=false`. The JSON fields are `device_id`, `flat_id`, `timestamp` (UTC), `level_percent`, `volume_l`, `flow_lpm`, `flow_out_lpm`, `ultrasonic_distance_cm`, `sensor_status`, and `valve_percent`. No echo is JSON `null`; other invalid distances are reported numerically with `sensor_status="fault"`. `valve_percent` is the effective locally limited duty command.
+Telemetry is published once per second to `watertank/<device_id>/telemetry` with QoS 0 and `retain=false`. Existing fields are `device_id`, `flat_id`, `timestamp` (UTC), source `level_percent`/`volume_l`, pipe `flow_lpm`/`flow_out_lpm`, `ultrasonic_distance_cm`, `sensor_status`, and effective `valve_percent`. No echo is JSON `null`; other invalid distances are numeric with `sensor_status="fault"`. Uncommissioned frames also report a fault and `setup_required`; numeric level/volume fields must not be shown as calibrated source measurements.
+
+The two-tank profile adds these fields, validated together by the backend:
+
+| Field | Meaning |
+| --- | --- |
+| `hardware_profile` | `"two_tank_transfer"` |
+| `level_sensor_model` | `"AJ-SR04M"` |
+| `receiver_capacity_l` | Configured receiver capacity, 1.5 L; not a receiver volume measurement |
+| `float_switch_role` | `"receiver_full"` by default, or `"source_low"` for the alternate physical placement |
+| `float_switch_state` | `"permit"`, `"stop_or_disconnected"`, or `"recovering"` |
+| `transfer_permitted` | Commissioning/float/clock gate is clear; does not prove a live command, valid source level, energized relay, or water flow |
+| `local_stop_reason` | `"none"`, `"setup_required"`, `"float_stop"`, `"float_recovering"`, or `"clock_unsynced"` |
+| `relay_energized` | Commanded relay-output state; there is no valve-position feedback |
+| `requested_valve_percent` | Accepted command before local level/duty restrictions; invalidation clears it |
+
+`valve_percent` reports effective duty; `relay_energized` reports whether the output is currently energized within that duty cycle. A true gate or output does not establish that a mechanical valve opened. Clock-unsynchronized hardware does not publish telemetry before NTP succeeds, even though that stop reason is part of the schema. See [API examples](../docs/api.md) for legacy compatibility and two-tank metadata.
 
 Commands arrive on `watertank/<device_id>/command` (QoS 1 subscription):
 
@@ -92,7 +113,7 @@ Commands arrive on `watertank/<device_id>/command` (QoS 1 subscription):
 
 This is an illustrative expired command; it cannot actuate hardware. The backend must send fresh, non-retained commands. The firmware rejects wrong topic/device IDs, missing command fields, invalid percentages, non-UTC dates, expired/future commands, TTLs over 30 seconds, repeated IDs, non-increasing issue times, and commands issued before the current MQTT connection. These checks also reject stale retained messages even though PubSubClient does not expose the retained flag to its callback. UTC `Z` and `+00:00` formats, including fractional seconds, are supported. Backend and device clocks must be synchronized.
 
-The master role applies `master_valve_percent`; the flat role applies `flat_valve_percent`. Local reserve protection and a `CRITICAL` tank command override either role. Demonstrating simultaneous independent tank and flat actuation needs another explicitly designed controller/relay channel; this implementation does not invent wiring for it.
+The default transfer role applies `min(master_valve_percent, flat_valve_percent)`. Master-only and flat-only roles select their corresponding command. Commissioning, float, source reserve, clock, session freshness, and command expiry still constrain the one physical valve. A `CRITICAL` tank command closes it. Independent master and branch valves require additional installed actuators and an explicitly designed topology.
 
 ## Verification
 
@@ -126,4 +147,4 @@ py -3.12 .\firmware\esp32\test_native.py --cxx "C:\Program Files\LLVM\bin\clang+
 
 `CXX` can also select a compiler executable (without extra compiler flags). The native runner creates `.build\control_logic_test.exe` on Windows and executes it. GCC/Clang compile in strict C++11 mode with warnings as errors; MSVC uses `/std:c++14`, its oldest supported C++ mode, with `/W4 /WX`. Native logic tests do not require PlatformIO, an ESP32, Wi-Fi credentials, or a running broker. An ESP32 cross-compiler cannot replace a host compiler for this suite.
 
-It checks geometry, median outlier rejection, immediate reserve closure, fault caps, boot state, command expiry, duty-cycle phase, millisecond counter rollover, UTC parsing, and replay rejection. Software tests do not validate GPIO voltage, acoustic reflections, relay behavior, valve closure, or hydraulic response. Complete the physical checklist in the hardware guide before wet operation.
+It checks geometry, median outlier rejection, immediate reserve closure, fault caps, boot state, command expiry, duty-cycle phase, millisecond counter rollover, UTC parsing, replay rejection, transfer command limits, float recovery, and rejection of commands from before recovery/reconnection. Software tests do not validate GPIO voltage, acoustic reflections, relay behavior, valve closure, or hydraulic response. Complete the physical checklist in the hardware guide before wet operation.

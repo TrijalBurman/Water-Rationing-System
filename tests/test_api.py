@@ -11,6 +11,7 @@ from backend.config import Settings
 def settings(tmp_path):
     return Settings(
         _env_file=None,
+        tank_capacity_l=200,  # Historical controller fixtures explicitly exercise a 200L tank.
         data_dir=tmp_path,
         app_mode="demo",
         api_key="test-key",

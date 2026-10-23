@@ -54,6 +54,9 @@ If Grafana initially shows no data, let the demo produce a few samples, leave So
 
 ## Live ESP32 operation
 
+This rig uses `TANK_CAPACITY_L=2.5`, matching the firmware source capacity; receiver capacity 1.5 L is firmware metadata, not another backend source tank. Bootstrap preserves existing `.env` values, so change an older `TANK_CAPACITY_L=200` to 2.5 explicitly before live operation. Source depth is approximately 20 cm and still requires physical calibration. The current firmware starts with actuation disabled; follow the hardware guide's commissioning checks, including a suitable supply and pressure-compatible valve installation.
+
+
 1. Set `APP_MODE=live` and `DEMO_AUTOSTART=false` in `.env`.
 2. Set `MQTT_BIND_ADDRESS=0.0.0.0` to make the broker reachable on the computer's trusted LAN. On Windows, if needed, allow inbound TCP `MQTT_PORT` (default 1883) in Windows Firewall on the trusted **Private** profile, scoped to the local subnet. Keep the portal, Grafana, and InfluxDB loopback bindings unless you deliberately need them on your LAN.
 3. Use the generated `tank-01` MQTT username and password from `.secrets/tank-01.env` in the ESP32 private configuration. Set its MQTT host to the computer's Wi-Fi/Ethernet LAN IPv4 address (find it with `ipconfig` on Windows) and use the configured published `MQTT_PORT`. Do not use `localhost`, a Docker service name, or a WSL virtual adapter address for the ESP32.
@@ -79,13 +82,13 @@ InfluxDB uses organization `waterwise`, bucket `water_telemetry`, and a 30-day r
 The provisioned Flux datasource obtains its organization, bucket, and token from the container environment. The Source selector separates `demo`, `hardware`, and manual `api` telemetry. The Device selector discovers identifiers within the selected source. The eight panels show:
 
 1. Tank level with the 10%, 25%, and 50% thresholds.
-2. Stored volume with a 20 L protected reserve label for the default 200 L tank.
+2. Stored volume with a 0.25 L protected reserve label for the 2.5 L source tank.
 3. Supply and delivery flow through the monitored branch.
 4. Measured flow differential, the dynamic leak threshold, and its 0.3 L/min minimum.
 5. Current finite depletion ETA. An ETA from an older frame is excluded when the latest frame has no ETA.
 6. Independent master and flat valve duty-cycle commands.
 7. Overall mode, tank state, and branch state as separate timelines.
-8. JSN-SR04T echo distance and sensor health, with faults shown in red.
+8. AJ-SR04M echo distance and sensor health, with faults shown in red.
 
 For a different tank capacity, update `TANK_CAPACITY_L`, the firmware calibration, and the volume panel's reserve label and threshold (10% of capacity). Change dashboard files in `grafana/dashboards/`; Grafana reloads them automatically. Provisioning does not retain edits made in the Grafana UI.
 

@@ -15,6 +15,10 @@ inline float clampPercent(float value) {
   return std::isfinite(value) ? std::max(0.0f, std::min(100.0f, value)) : 0.0f;
 }
 
+inline float transferPercent(float sourceLimit, float pipeLimit) {
+  return std::min(clampPercent(sourceLimit), clampPercent(pipeLimit));
+}
+
 inline bool validDistance(float cm) {
   return std::isfinite(cm) && cm >= 20.0f && cm <= 600.0f;
 }
@@ -59,6 +63,9 @@ class ValveController {
     // A single credible reading below reserve closes immediately; reopening
     // requires a full median window above reserve and a live command.
     const bool rawBelowReserve = levelFromDistance(rawDistanceCm, standoffCm, heightCm) < kReservePercent;
+    // Discard the pre-trip high readings once, on entering the reserve stop.
+    // Repeated low readings must still fill the median and update the level.
+    if (rawBelowReserve && !reserveClosed_) filter_.reset();
     if (rawBelowReserve)
       reserveClosed_ = true;
     float median = 0.0f;
@@ -75,6 +82,12 @@ class ValveController {
     receivedAtMs_ = receivedAtMs;
     expiresAtMs_ = expiresAtMs;
     hasCommand_ = true;
+  }
+
+  void invalidateCommand() {
+    hasCommand_ = false;
+    requestedPercent_ = 0.0f;
+    expiresAtMs_ = 0;
   }
 
   float effectivePercent(uint32_t nowMs, int64_t unixMs) const {
@@ -97,6 +110,7 @@ class ValveController {
   float medianDistanceCm() const { return distanceCm_; }
   bool sensorFault() const { return sensorFault_; }
   bool hasLevel() const { return hasLevel_; }
+  float requestedPercent() const { return requestedPercent_; }
 
  private:
   MedianFive filter_;

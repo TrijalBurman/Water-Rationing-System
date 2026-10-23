@@ -112,6 +112,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             "leak_rate_lpm",
                         )
                     },
+                    **{
+                        key: t[key]
+                        for key in (
+                            "hardware_profile",
+                            "level_sensor_model",
+                            "float_switch_role",
+                            "float_switch_state",
+                            "transfer_permitted",
+                            "local_stop_reason",
+                            "relay_energized",
+                            "requested_valve_percent",
+                            "receiver_capacity_l",
+                            "valve_percent",
+                        )
+                        if key in t
+                    },
                 }
             )
         return {"device_id": device_id, "points": points}

@@ -2,7 +2,7 @@
   "id": null,
   "uid": "water-rationing",
   "title": "Waterwise \u00b7 Operations Flight Recorder",
-  "description": "Tank reserve, branch leaks, valve commands and JSN-SR04T health. Data arrives once per second; this dashboard refreshes every five seconds.",
+  "description": "Tank reserve, branch leaks, valve commands and AJ-SR04M / compatible ultrasonic health. Data arrives once per second; this dashboard refreshes every five seconds.",
   "tags": [
     "waterwise",
     "water",
@@ -92,7 +92,7 @@
       "id": 1,
       "title": "Tank Water Level",
       "type": "gauge",
-      "description": "JSN-SR04T tank level. The protected reserve starts below 10%.",
+      "description": "AJ-SR04M / compatible ultrasonic tank level. The protected reserve starts below 10%.",
       "gridPos": {
         "x": 0,
         "y": 0,
@@ -165,7 +165,7 @@
       "id": 2,
       "title": "Usable Water Volume",
       "type": "stat",
-      "description": "Current stored volume. Protected reserve is 20 L for the default 200 L tank (10% of configured capacity). Subtract the reserve to obtain deliverable water.",
+      "description": "Current stored volume. Protected reserve is 0.25 L for the configured 2.5 L source tank (10% of configured capacity). Subtract the reserve to obtain deliverable water.",
       "gridPos": {
         "x": 6,
         "y": 0,
@@ -189,7 +189,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "liters",
-          "decimals": 1,
+          "decimals": 2,
           "noValue": "Awaiting telemetry",
           "color": {
             "mode": "fixed",
@@ -204,7 +204,7 @@
               },
               {
                 "color": "blue",
-                "value": 20
+                "value": 0.25
               }
             ]
           },
@@ -219,7 +219,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "Stored water \u00b7 reserve 20 L"
+                "value": "Stored water \u00b7 reserve 0.25 L"
               }
             ]
           }
@@ -795,7 +795,7 @@
       "id": 8,
       "title": "Sensor Health & Echo Distance",
       "type": "stat",
-      "description": "Latest JSN-SR04T echo distance and backend sensor health. Valid echo bounds are 20\u2013600 cm. Fault status is shown in red; the protected reserve still takes precedence.",
+      "description": "Latest AJ-SR04M / compatible ultrasonic echo distance and backend sensor health. Valid echo bounds are 20\u2013600 cm. Fault status is shown in red; the protected reserve still takes precedence.",
       "gridPos": {
         "x": 16,
         "y": 14,

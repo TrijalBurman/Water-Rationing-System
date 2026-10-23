@@ -48,11 +48,17 @@ const { chromium } = require('../.runtime/browser/node_modules/playwright');
     assert.match(await fs.readFile(csvPath, 'utf8'), /timestamp/i);
     check('history chart and CSV export');
 
-    await scenario('leak', 'LEAK_ALERT');
+    const overview = await (await context.request.get(base + '/api/overview')).json();
+    const smallSource = overview.tank_capacity_l < 100;
+    await scenario('leak', smallSource ? 'RATIONING' : 'LEAK_ALERT');
+    await page.waitForFunction(async () => {
+      const response = await fetch('/devices/tank-01/latest');
+      return response.ok && (await response.json()).decision.flat_status === 'LEAK_ALERT';
+    });
     await page.waitForFunction(() => document.querySelector('#flat-value').textContent.trim() === '25%');
-    assert.equal((await page.locator('#master-value').textContent()).trim(), '100%');
+    assert.equal((await page.locator('#master-value').textContent()).trim(), smallSource ? '82%' : '100%');
     assert.equal(await page.locator('#alert-banner').isVisible(), true);
-    check('confirmed leak restricts branch while master remains open');
+    check('confirmed leak restricts branch while preserving any stricter source limit');
     await scenario('critical', 'CRITICAL');
     await page.waitForFunction(() => document.querySelector('#master-value').textContent.trim() === '0%');
     assert.equal((await page.locator('#flat-value').textContent()).trim(), '0%');

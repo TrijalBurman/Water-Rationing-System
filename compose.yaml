@@ -12,7 +12,7 @@ services:
       API_KEY: ${API_KEY:?Run scripts/bootstrap.cmd on Windows or scripts/bootstrap.sh first}
       DATA_DIR: /app/data
       DAILY_QUOTA_L: ${DAILY_QUOTA_L:-150}
-      TANK_CAPACITY_L: ${TANK_CAPACITY_L:-200}
+      TANK_CAPACITY_L: ${TANK_CAPACITY_L:-2.5}
       QUOTA_TIMEZONE: ${QUOTA_TIMEZONE:-Asia/Kolkata}
       MQTT_HOST: mosquitto
       MQTT_PORT: 1883

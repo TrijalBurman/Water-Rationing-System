@@ -1,184 +1,233 @@
-# Hardware connections, assembly, and commissioning
+# Hardware connections for the two-tank build
 
-This is the connection guide for the **implemented firmware**, checked against [`main.cpp`](../firmware/esp32/src/main.cpp), [`control_logic.h`](../firmware/esp32/include/control_logic.h), and [`config.example.h`](../firmware/esp32/include/config.example.h). Use this guide for assembly where the earlier [`implementation_plan.md`](../implementation_plan.md) differs. GPIO numbers below are the ESP32's **GPIO labels**, not header positions or physical package pin numbers.
+This guide matches the project's **two-tank transfer configuration**: one ESP32, the photographed **AJ-SR04M**, two Robu `43647` flow sensors, one `610733` float switch, one `1121234` two-channel relay module, and one `31396` normally closed valve. GPIO numbers mean the ESP32's printed **GPIO labels**, not header positions. The target is a classic ESP32 Dev Module (`esp32dev`); an ESP32-C3/S3 needs a different pinout.
 
-## What is implemented
+Use this guide and the current [firmware configuration](../firmware/esp32/include/config.example.h) for this build. The earlier [implementation plan](../implementation_plan.md) describes the original JSN-SR04T/active-low arrangement and is historical where it differs.
 
-The firmware targets an ESP32 Dev Module, a **JSN-SR04T in trigger/echo mode**, two YF-S201 pulse flow sensors, and **one** normally closed 12V solenoid driven by an active-low relay. The firmware selects whether this relay represents the tank master valve or one flat valve. It does not implement a pump cutoff or a second relay: the original plan does not assign pins or driver hardware for them.
+## Resolve these before energizing the valve
 
-The backend exposes separate master and flat commands. With the single relay specified here, only the configured role is physically actuated. To demonstrate independent leak isolation while the shared supply stays open, fit an explicitly designed second controller/channel and revise the wiring and firmware configuration first. Never connect two independently controlled valve coils to this one relay expecting separate behavior.
+The listed components can support the sensing and control design, but **they cannot operate this valve safely as supplied**:
 
-## Components and connections
+1. **The valve needs regulated 12 V DC and is listed at 1 A.** The pictured NIPPO/Hi-Watt rectangular 9 V batteries are not a 12 V source. Two in series give nominal 18 V; two in parallel remain 9 V. Do not connect either arrangement to the valve, relay supply, or ESP32. Their current capability is not established for this load. A battery is not required: a suitable enclosed regulated 12 V DC supply can power the valve.
+2. **Robu explicitly says valve `31396` is unsuitable for gravity-fed systems.** Its listed operating pressure is 0.02–0.8 MPa. Two small tanks on a table do not establish a suitable pressure source. Use an arrangement verified to meet the valve's pressure requirement, or obtain a water valve explicitly rated for the actual gravity/zero-pressure conditions. No pump is in the inventory, and the firmware has no pump-control output. Software cannot correct this hydraulic limitation. [Robu valve specifications](https://robu.in/product/dc12v-plastic-electric-12v-water-solenoid-valve-electric-solenoid-valve-magnetic-nc-water-air-inlet-flow-switch-nc-12/)
+3. **The resistor values are 1 kΩ and 150 Ω.** `R225229` is a 150 Ω resistor, not 2 kΩ. One of each cannot make the required 5 V pulse divider. Confirm how many 1 kΩ resistors were received; three per divider can make the circuit below. Otherwise additional suitable resistors or verified level interfaces are needed.
+4. **A fuse holder is not a fuse, and the capacitor is not a flyback diode.** No actual fuse or valve-coil suppression diode was listed. Add appropriately selected parts before powering the coil. The 6 A holder rating does not specify the fuse to install.
+5. **The AJ-SR04M mode and the relay's electrical interface still need checking.** The supplied photograph does not establish the ultrasonic PCB revision/mode, 3.3 V trigger acceptance, or relay input backfeed. Measure/verify the interfaces before attaching ESP32 GPIOs.
 
-### Parts for one controller
+`WATER_HARDWARE_COMMISSIONED` defaults to **0**, so the firmware keeps the actuator inhibited while wiring, tank dimensions, power, pressure, and float orientation remain unverified. Setting it to 1 is a commissioning declaration; it does not measure or fix the hardware.
 
-| Quantity | Part | Selection notes |
-| --- | --- | --- |
-| 1 | Classic ESP32 development board with GPIO 25, 26, 27, 32, and 34 exposed | Firmware target is `esp32dev`; ESP32-C3/S3 boards are not interchangeable with this pinout |
-| 1 | JSN-SR04T module and its matching waterproof probe | Must support the firmware's trigger/echo mode; confirm the exact PCB revision |
-| 2 | YF-S201 flow meters | Check voltage, pulse-output circuit, flow range, pressure, thread size, and water compatibility on the supplied parts |
-| 1 | Active-low, 3.3V-compatible relay interface/module | Usually powered at 5V; must stay inactive during ESP32 reset and loss of ESP32 power |
-| 1 | Normally closed, 12V DC solenoid water valve | Confirm pressure requirement, continuous duty, coil current, and DC relay-contact rating |
-| 3 each | 1.0kΩ and 2.0kΩ resistors, 1%, at least 1/4W | Three separate 5V pulse dividers; see output-type caveat below |
-| 1 | Flyback diode selected for the coil | The plan proposes 1N4007; check its current/thermal rating against the actual valve |
-| 1 each | Regulated 5V supply and 12V DC supply, fuse and holder | Size from measured loads; keep mains wiring inside approved enclosed supplies |
-| As needed | Terminal blocks, suitable wire, dry electronics enclosure, hose/fittings, manual shutoff, and controlled leak tap | Match plumbing direction, pressure, and materials; use a separate branch for the test leak |
+## Where each component goes
 
-### Terminal-by-terminal connection table
-
-| Component terminal | Connect to | Notes |
-| --- | --- | --- |
-| ESP32 GND | Logic ground bus | Common with 5V supply negative, sensors, all divider lower resistors, and the relay control interface |
-| JSN-SR04T VCC | Regulated 5V rail | Confirm the installed revision's supply requirements |
-| JSN-SR04T GND | Logic ground bus | Keep the electronics PCB dry |
-| JSN-SR04T TRIG | **GPIO 26** | Firmware sends a 10µs 3.3V pulse; verify that the installed module accepts 3.3V triggering |
-| JSN-SR04T ECHO | Divider A input; divider A midpoint → **GPIO 34** | Input-only GPIO; never connect a 5V echo directly |
-| YF-S201 #1 VCC, usually red | Regulated 5V rail | Verify wire labels against the supplied part, not colour alone |
-| YF-S201 #1 GND, usually black | Logic ground bus | Upstream meter |
-| YF-S201 #1 signal, usually yellow | Divider B input; divider B midpoint → **GPIO 27** | `flow_lpm`; firmware counts rising edges |
-| YF-S201 #2 VCC, usually red | Regulated 5V rail | Same supply as meter #1 |
-| YF-S201 #2 GND, usually black | Logic ground bus | Downstream meter |
-| YF-S201 #2 signal, usually yellow | Divider C input; divider C midpoint → **GPIO 32** | `flow_out_lpm`; firmware counts rising edges |
-| Relay VCC | Its rated supply, normally regulated 5V | `JD-VCC`/opto-isolation jumpers are module-specific; consult its schematic |
-| Relay control GND | Logic ground bus for a non-isolated interface | Do not assume an optocoupler automatically makes a jumpered board isolated |
-| Relay input IN1 | **GPIO 25** via a compatible interface | LOW = relay energized/water valve open; HIGH = relay inactive/water valve closed |
-| Relay COM | Fused 12V positive | Fuse near supply |
-| Relay NO | Solenoid positive | Contact is open when relay is de-energized; water valve therefore closes |
-| Relay NC | Leave disconnected | Insulate the unused terminal |
-| Solenoid negative | 12V negative | Coil return |
-| Diode cathode, striped end | Solenoid positive, after relay NO | Mount directly across the coil terminals |
-| Diode anode, unstriped end | Solenoid negative | Do not put the diode in series with the coil |
-
-Use a regulated supply for the ESP32 board as specified by its manufacturer. For a genuine ESP32-DevKitC V4, Espressif specifies **one** board power source at a time: USB, the 5V header, or the 3V3 header. Do not feed its external 5V header while USB also supplies it. Other development boards need their own power-path documentation. The sensors/relay may use a separate 5V supply with a common logic ground while the ESP32 uses USB; do not join the two positive supply outputs. See [Espressif's board power instructions](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32/esp32-devkitc/user_guide.html#power-supply-options).
-
-Never connect the 12V rail to an ESP32 5V/3V3 pin, and never power the relay coil or water-valve coil from a GPIO. The relay's dry COM/NO contacts switch the 12V circuit; they do not connect 12V to IN1/VCC. With separate isolated supplies, the 12V coil loop does not need a ground link to the logic just to operate mechanical contacts. A shared non-isolated 12V-to-5V converter already joins their grounds; route coil return current directly to the supply, away from sensor ground wiring. The plan's 5V/2A and 12V/3A figures are starting supply ratings, not proof that a particular valve/relay combination is compatible.
-
-### Three independent voltage dividers
-
-Build one divider for the echo and one for each flow sensor:
+The user has identified the **2.5 L tank as the source** and the **1.5 L tank as the receiver**. The AJ-SR04M continuously measures the source tank. The float stops transfer when the receiver reaches its chosen full level. The two flow meters measure the same pipe section before and after the point where a leak may occur.
 
 ```text
-5V signal ── R1: 1.0kΩ ──┬── ESP32 input
+SOURCE TANK                                    RECEIVER TANK
+AJ-SR04M above water                           P35 float at full level
+       │                                               │
+source outlet                                          │
+       ↓                                               │
+manual shutoff → NC valve → Flow #1 → monitored pipe → Flow #2 → receiver
+                                           │
+                                           └→ controlled leak tap → catch tray
+```
+
+This is the placement of the components, **conditional on solving the valve pressure requirement above**. Follow all flow arrows. Place the valve upstream of the leak tap so closing it removes supply to both the receiver and the leak. Every normal outlet from the monitored section must pass through Flow #2; an extra outlet between the meters appears as a leak. Keep the pipe full, purge air, and follow the meter's mounting requirements.
+
+There is one controlled water path and one valve. The unused second relay channel does not provide a second valve. The receiver has a **full/not-full switch**, not a continuous percentage or volume measurement. The source tank's ultrasonic reading supplies the existing `level_percent` and `volume_l` values.
+
+The default `WATER_VALVE_ROLE_TRANSFER` applies the **smaller of `master_valve_percent` and `flat_valve_percent`** to this single transfer valve. Thus either a source-tank restriction or the monitored branch's leak restriction can limit transfer. The local float and reserve safeguards take priority. A duty value is a timed on/off command; it is not proportional valve position.
+
+## Verified inventory
+
+These are Robu's seller specifications, checked on 23 October 2026. Generic products can vary; confirm delivered markings and physical measurements. See [the detailed parts notes](parts-research-notes.md) for source caveats.
+
+| Owned part | Verified identity | Use in this build |
+| --- | --- | --- |
+| Two tanks | Source **2.5 L**, receiver **1.5 L**; source depth reported as **approximately 20 cm** | Confirm usable full/empty distances before calibration |
+| One ESP32 | Exact carrier board not identified | USB-powered controller; check its power-path documentation |
+| AJ-SR04M and matching probe | Board label visible in the supplied photograph; firmware/mode unverified | Source-tank distance in trigger/echo mode |
+| `43647`, two | [YF-S201 black](https://robu.in/product/yf-s201-water-flow-measurement-sensor-with-1-30liter-min-flow-rate-2/), 5–18 V supply, 15 mA maximum at 5 V, rated 1–30 L/min | Pipe input/output flow; initial 450 pulses/L each |
+| `1121234` | [5 V two-channel optocoupler relay](https://robu.in/product/2-channel-relay-module-30a-5v-supports-high-and-low-trigger-optocoupler/), high/low trigger selectable, up to 190 mA operating current | Channel 1 switches the valve; channel 2 remains inactive |
+| `31396` | [Normally closed 12 V / 1 A water/air valve](https://robu.in/product/dc12v-plastic-electric-12v-water-solenoid-valve-electric-solenoid-valve-magnetic-nc-water-air-inlet-flow-switch-nc-12/), nominal 1/2-inch ports, 0.02–0.8 MPa | Transfer shutoff, only with suitable power and pressure |
+| `610733` | [P35 NC plastic float](https://robu.in/product/p35-small-float-level-control-switch-plastic-float-switch/), passive switch, seller switching limit 10 W / 0.5 A | Receiver full-level input; do not switch the valve coil through it |
+| `1897057` | [BF-013A fuse holder](https://robu.in/product/fuse-holder-bf-013a/), seller rated 6 A / 250 VAC; package lists holder only | Hold a separately selected fuse; verify cartridge size |
+| `582209` | [1 kΩ, 0.25 W, ±1% axial resistor](https://robu.in/product/1k-ohm-0-25w-metal-film-resistor-pack-of-100/) | Divider components if sufficient quantity is available; count actual pieces |
+| `R225229` | [MF25 150R, 150 Ω, 0.25 W, ±1%](https://robu.in/product/mf25-150r-multicomp-pro-through-hole-resistor-150-ohm-mf25-series-250-mw-%c2%b1-1-axial-leaded-250-v/) | Not a replacement for a 2 kΩ divider resistor |
+| `662929` | [100 nF / 50 V ceramic disc capacitor](https://robu.in/product/100nf-50v-disc-capacitor/) | Optional float-input noise filter or local 5 V supply decoupling |
+| `R134067` | [XINYA XY308-2.54-4P terminal](https://robu.in/product/xy308-2-54-xinya-4-pin-screw-terminal-block/), four positions, 2.54 mm pitch, seller rated 6 A | Secure PCB-mounted connections; each terminal is electrically separate |
+| Two rectangular 9 V batteries | NIPPO heavy-duty and Hi-Watt 6F22 shown by user | Leave out of this build's power circuit |
+| USB supply/power bank | Output/current and power-bank timeout behavior not supplied | ESP32 USB power; verify sustained operation |
+
+The current `582209` page says one resistor in its package body despite “pack of 100” in its URL/title. Do not infer the delivered quantity from the URL. No relay contact rating establishes the rating of the complete wiring, terminal block, or fuse.
+
+## Power distribution
+
+Use **USB only for the ESP32's board power**. Power the AJ-SR04M, both flow sensors, and the relay from a suitable regulated 5 V accessory rail. This may come from an appropriately rated USB supply/distribution arrangement. If it comes from a separate supply, join its **negative/ground** to ESP32 GND; do not join its positive output to the board's USB/5V positive unless the carrier's documented power path permits that arrangement. Budget for the relay's 190 mA maximum, both meters, ultrasonic module, and supply margin. Do not draw relay-coil current from a GPIO or assume the ESP32's 3V3 regulator can provide accessory power.
+
+For a genuine ESP32-DevKitC V4, Espressif specifies one board power source at a time: USB, 5V header, or 3V3 header. Other carrier boards need their own documentation. A power bank may shut off at low load or during operation; verify it stays on through all states. [Espressif board power options](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32/esp32-devkitc/user_guide.html#power-supply-options)
+
+The valve has its **own regulated 12 V DC circuit**, sized for its actual continuous/inrush demand. A supply rated at least 1 A is required by the seller's nominal load; provide suitable headroom and verify the delivered coil. Keep mains wiring inside a suitable enclosed supply. The 12 V positive must never touch ESP32, AJ-SR04M, flow-signal, relay VCC, or relay IN terminals.
+
+Relay contacts are mechanical switches: their COM/NO circuit does not need a logic-ground link merely to switch an independently isolated 12 V supply. If a shared converter already connects the 5 V and 12 V grounds, route valve return current directly to the supply, away from sensor grounds. Optocouplers on a jumpered relay board do not by themselves prove isolation of its supply/input circuit.
+
+## Terminal-by-terminal wiring
+
+Disconnect all supplies while wiring. Use printed terminal labels, not the apparent order in a photograph. The AJ's combined TRIG/RX and ECHO/TX labels only represent trigger/echo signals in the supported pulse mode.
+
+| Terminal / wire | Connect to | Important detail |
+| --- | --- | --- |
+| ESP32 USB | USB supply/power bank or PC during programming | One documented board power source |
+| ESP32 GND | Logic ground bus | Common with 5 V accessory negative and all signal interfaces |
+| AJ-SR04M VCC | Regulated 5 V accessory rail by default | See the 3.3 V variant exception below |
+| AJ-SR04M GND | Logic ground | Keep the module PCB dry |
+| AJ-SR04M TRIG/RX | **GPIO 26**, through a suitable upward level interface if required | 20 µs trigger; verify 3.3 V high acceptance first |
+| AJ-SR04M ECHO/TX | Interface/divider A input; its output to **GPIO 34** | Never attach an unverified 5 V echo directly |
+| Flow #1 red | Regulated 5 V accessory rail | Seller wiring; verify actual part |
+| Flow #1 black | Logic ground | Upstream meter |
+| Flow #1 yellow | Interface/divider B input; its output to **GPIO 27** | `flow_lpm`; pulse input |
+| Flow #2 red | Regulated 5 V accessory rail | Same accessory supply |
+| Flow #2 black | Logic ground | Downstream meter |
+| Flow #2 yellow | Interface/divider C input; its output to **GPIO 32** | `flow_out_lpm`; pulse input |
+| P35 float wire 1 | Logic ground | No external voltage goes to the switch |
+| P35 float wire 2 | **GPIO 33** | `INPUT_PULLUP`: closed = LOW/permit, open = HIGH/stop |
+| Relay module VCC/DC+ | Regulated **5 V**, as labelled | Not 9 V or 12 V; inspect any separate coil/logic supply terminals |
+| Relay control GND/DC− | Logic ground for the qualified interface | Follow the actual board's supply/input scheme |
+| Relay IN1 | **GPIO 25 via a verified GPIO-safe interface** | Default HIGH-trigger: LOW off, HIGH on |
+| Relay IN2 | **GPIO 23 via the same qualified interface** | Held LOW/off in default HIGH-trigger mode; channel unused |
+| Relay channel 1 COM | Fused 12 V positive | Fuse near the 12 V source |
+| Relay channel 1 NO | Valve positive | NO means contact open when relay coil is off |
+| Relay channel 1 NC | Leave disconnected and insulated | Do not use NC for this valve |
+| Relay channel 2 COM/NO/NC | Leave disconnected and insulated | No second actuator |
+| Valve negative | 12 V supply negative | Direct coil return |
+| Suppression diode cathode/stripe | Valve positive, after NO contact | Across the coil, not in series |
+| Suppression diode anode | Valve negative | Select an adequately rated diode |
+
+**Float installation:** mount the P35 in the **1.5 L receiver** below its overflow level, leaving enough spare volume for water already in the pipe and the measured valve-closing delay. With power disconnected, use a continuity meter to arrange it so it is **closed below that safe full limit and open at the limit**. The product is described as NC, but mounting direction and float orientation determine which water position opens it. Confirm the actual movement; do not infer it from “NC.” An unplugged/broken wire then also causes a stop. A shorted cable or stuck float cannot be diagnosed by this two-wire circuit. Keep a safe overflow path and manual shutoff available.
+
+If the single 100 nF capacitor is used as an input filter, connect it **between GPIO 33 and logic ground**, close to the ESP32. Alternatively use it across accessory 5 V and ground near a module. It is non-polarized; choose one location unless more capacitors are available. It does not replace the float recovery debounce, a bulk supply capacitor, or the valve diode.
+
+### Signal voltage conversion
+
+The default 5 V ultrasonic and flow signals require **three separate verified 3.3 V interfaces**. The Robu flow listing does not establish whether the delivered yellow output is actively driven or open collector with a 5 V pull-up. Treat it as potentially 5 V until its circuit/waveform is checked.
+
+For a suitable actively driven 5 V pulse output, the existing 1 kΩ type can make a divider if **nine pieces** are available in total:
+
+```text
+sensor signal ── 1 kΩ ──┬── ESP32 input
                          │
-                      R2: 2.0kΩ
+                        1 kΩ
                          │
-                        GND
+                        1 kΩ
+                         │
+                    logic ground
 ```
 
-With a 5.0V source, the node is nominally 3.33V. The three divider midpoints must remain separate: A to GPIO 34, B to GPIO 27, C to GPIO 32. Use 1% resistors and verify actual pulse highs/lows, supply tolerance, and output drive strength. A multimeter may show only a pulse's average voltage; use an oscilloscope or equivalent peak measurement to check amplitude. ESP32 inputs are not 5V-tolerant; the [ESP32 datasheet's DC limits](https://documentation.espressif.com/esp32_datasheet_en.html) specify a high input at least `0.75 × VDD` and at most `VDD + 0.3V`. Do not treat 3.6V as a normal operating target.
+The two lower 1 kΩ resistors are **in series**, giving 2 kΩ. Nominal output is `5 × 2/(1 + 2) = 3.33 V`. Build A for GPIO 34, B for GPIO 27, C for GPIO 32; never join their midpoints. Use the specified 1% parts and check maximum supply/pulse voltage, tolerances, output current capability, and measured high/low levels before connection. A multimeter may show only the average of a pulse; check peak voltage with appropriate equipment.
 
-GPIO 34 has no internal pull-up/pull-down, and the firmware configures all three sensor inputs as `INPUT`, with no internal pull-ups. If a flow sensor uses an open-collector output, select its external pull-up and level conversion together. Adding an arbitrary weak pull-up ahead of a 3kΩ divider can pull the pulse high too low. An output that is documented to permit a 3.3V pull-up can instead use that pull-up directly into the GPIO, with no 5V divider, provided the module has no conflicting internal 5V pull-up. Verify the complete output circuit and waveform; do not assume all YF-S201 variants are electrically identical.
+**Do not use one 1 kΩ plus one 150 Ω resistor as this divider.** A 150 Ω upper / 1 kΩ lower pair gives about **4.35 V** from 5 V; reversed it gives about **0.65 V**. Neither is suitable. If only one of each resistor was received, the three dividers cannot be built from that inventory.
 
-The relay must accept 3.3V logic without putting 5V onto GPIO 25. Verify its schematic and input current. Use a suitable level-shifting driver if it does not. Its hardware bias/interface must keep it inactive through reset, boot, disconnected ESP32 power, and programming. A pull-up to a **GPIO-safe** 3.3V supply is appropriate only when compatible with that relay/interface; never add a pull-up from GPIO 25 directly to 5V. Check the complete power sequence on the bench.
+An open-collector output may instead use a 3.3 V pull-up **only when the actual sensor circuit permits it and has no conflicting internal 5 V pull-up**. A weak pull-up before a 3 kΩ divider can make the high voltage too low. Select the pull-up and interface together; do not assume all YF-S201 variants match. GPIO 34 has no internal pull-up/down, and the firmware leaves the pulse inputs as `INPUT`. [Espressif GPIO restrictions](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/peripherals/gpio.html)
 
-If the installed JSN-SR04T requires a trigger high above the ESP32's 3.3V output, use a suitable non-inverting 3.3V-to-5V logic interface on TRIG. The ECHO path still needs its own reduction to ESP32-safe levels.
+Classic ESP32 inputs are not 5 V tolerant. The datasheet specifies the required high input and voltage limits; design for normal 3.3 V operation rather than treating an absolute maximum as a target. [ESP32 electrical limits](https://documentation.espressif.com/esp32_datasheet_en.html)
 
-### Correct solenoid circuit
+### Relay trigger mode and startup state
 
-An earlier plan schematic incorrectly joined the switched positive wire to the negative rail and made TRIG appear grounded; both paths are corrected in this guide and the current plan schematic. **Do not connect switched positive directly to the negative rail or TRIG to ground.** The coil and flyback diode are the two branches between the switched positive node and the negative rail; there is no wire shorting those nodes together.
+For the default `WATER_RELAY_ACTIVE_HIGH=1`, put **both relay channel trigger selectors in HIGH mode** before attaching GPIOs. Firmware drives GPIO 25 LOW for closed/off and HIGH for open/on; GPIO 23 stays LOW to disable the unused channel.
+
+The [seller's trigger chart](https://robu-prod-media.s3.ap-south-1.amazonaws.com/product-descriptions/2021/11/1121234-1.jpg) lists the 5 V board's HIGH mode as ON at 3.3–5 V and OFF at 0–2.5 V. That is a seller threshold claim, not a verified input schematic. Nominal 3.3 V is its minimum stated ON level, and input current, pull-ups, and backfeed are unspecified. **Do not interpret this chart as permission to connect a 5 V pull-up to an ESP32 pin.** Qualify the input or use an appropriate driver with a GPIO-safe 3.3 V side.
+
+The hardware interface must keep **both channels off** during reset, startup, flashing, and removal of ESP32 power while accessory 5 V remains on. For HIGH mode this requires a suitable off/LOW bias at the module input; its exact circuit must suit the module and driver. Verify it with the valve disconnected. Firmware's startup write cannot control a GPIO before firmware begins running.
+
+The optional `WATER_RELAY_ACTIVE_HIGH=0` setting supports an appropriately designed LOW-trigger interface: set **both module selectors LOW**, use HIGH for off/LOW for on, and ensure the interface's power-off bias remains inactive. Changing software polarity alone without changing the physical trigger selectors and startup bias is incorrect. If an interface inverts logic, account for its truth table when configuring and testing the complete path.
+
+### Valve power circuit
 
 ```text
-12V positive ── fuse ── relay COM
-                          relay NO ── switched positive ── solenoid (+)
-                                                          [   COIL   ]
-12V negative ──────────────────────────────────────────── solenoid (−)
+12 V positive ── selected fuse ── relay CH1 COM
+                                    relay CH1 NO ── valve (+)
+                                                    [ COIL ]
+12 V negative ────────────────────────────────────── valve (−)
 
-Flyback diode directly across the coil:
-  cathode (striped end) → solenoid (+), switched positive
-  anode                → solenoid (−), 12V negative
+Diode directly across valve coil:
+  stripe/cathode → valve (+), after relay NO
+  anode         → valve (−)
 ```
 
-Use a normally closed water valve so de-energizing its coil closes the water path, and the relay's **NO** contact so de-energizing the relay cuts coil power. Confirm the valve's pressure range, orientation, continuous-duty rating, and suitability for 30-second cycling.
+The normally closed **water valve** and normally open **relay contact** serve different roles: removing relay power opens the electrical contact, removing valve-coil power and closing the water path. Check actual shutoff under the intended fluid pressure; a click alone does not establish flow or closure.
 
-Choose the fuse from the measured coil current, any inrush, wire ampacity, and supply short-circuit capability; **1A is not a universal fuse value**. Likewise, confirm relay contacts have a suitable DC inductive-load rating. A 1N4007 is the plan's proposed flyback diode; verify current, reverse-voltage, energy, and repetitive-duty ratings for the selected coil. Observe valve closing time because a flyback diode slows current decay. Keep coil power wiring away from pulse inputs.
+Select the actual fuse from measured coil current/inrush, wire/connector ampacity, and the supply's fault capability. The holder's 6 A label is a maximum holder rating, not a recommendation for a 6 A fuse. Verify the cartridge fits. Select coil suppression for current, reverse voltage, energy, and repetitive operation; a proposed 1N4007 must be checked against those conditions. A diode affects coil-current decay/closing time. The relay's own coil diode, if fitted, does **not** suppress the separate water-valve coil. Confirm DC inductive-load contact ratings and valve duty/temperature limits. Keep coil wires away from pulse inputs.
 
-## Plumbing order and relay role
+## AJ-SR04M mode, mounting, and calibration
 
-The two flow sensors measure **the same outgoing branch at two points**. Here, "inflow" means flow entering the monitored pipe section, not refill water entering the tank. Install both sensor arrows toward the outlet and follow the meter supplier's orientation/straight-pipe requirements. Keep the pipe full and purge air before calibration.
+The supplied photo says **AJ-SR04M**, so the project uses that identity. It must operate in **trigger/echo pulse-width mode**, not automatic UART distance output. In the original AJ-SR04M manual this is the mode with **R19 open**. PCB revisions differ: inspect the reverse side and the documentation for the delivered version before altering pads/resistors. Do not solder, bridge, or remove a component based only on the front photograph. [Original AJ-SR04M manual](https://altronics.cl/uploads/manual-aj-sr04m.pdf); see [the project's sensor research notes](aj-sr04m-research-notes.md) for revision differences.
 
-For the default **master role** (`WATER_VALVE_ROLE_MASTER`):
+The firmware sends a **20 µs trigger every 120 ms**, captures echo edges without a long blocking measurement, and uses a median of five valid samples. Its conservative accepted range is **30–300 cm**; this is the project's operating envelope, not a universal rating for every AJ-SR04M variant. An echo outside that range is a fault.
 
-```text
-Tank outlet → manual shutoff → NC solenoid → Flow #1 ──┬── Flow #2 → outlet
-                                                       │
-                                                       └── controlled leak tap
-```
+Default power is 5 V with an echo interface. If the exact delivered AJ board is positively identified as rated for **3.3 V operation**, its measured output is GPIO-safe, and its operating behavior is validated at that supply, 3.3 V power/direct echo may be used for that board. In that case do **not** add a divider intended for a 5 V echo, which could reduce the high level too far. This exception applies to the identified ultrasonic board, not to the 5 V YF-S201 supply or relay. Verify TRIG compatibility at whichever supply is used: the manufacturer-authored Mangze V2 manual specifies a high of at least `0.7 × VCC`, which is 3.5 V at a 5 V supply, so a direct 3.3 V trigger is not guaranteed for that revision. Use a suitable non-inverting upward level interface when required.
 
-This one valve controls the complete rig's supply and follows `master_valve_percent`. The backend can display a branch leak alert, but its separate `flat_valve_percent` will not actuate this master-role relay.
+Mount the probe vertically above the source water, with its face at least **30 cm above the highest usable/full surface**, or farther if the delivered module's blind zone requires it. The empty distance must remain at or below 300 cm. Keep the acoustic path clear of tank walls, narrow tubes, fittings, foam, condensation, and turbulent surfaces. The small 2.5 L tank may not provide enough beam clearance at this mounting distance; verify the actual opening and full range instead of assuming that a waterproof probe will measure a small tank reliably. The probe being waterproof does not make the PCB waterproof: keep electronics and terminals in a dry enclosure. A narrow stilling tube from the older plan requires acoustic validation before use.
 
-For a **flat role** demonstration (`WATER_VALVE_ROLE_FLAT`):
+**The source capacity is 2.5 L, receiver capacity is 1.5 L, and source depth is approximately 20 cm, as reported by the user.** The configuration uses `WATER_TANK_USABLE_HEIGHT_CM=20.0f` as an approximate starting value requiring measurement. A 30 cm probe standoff gives full distance 30 cm, empty distance 50 cm, and the 10% reserve boundary at 48 cm. These are calculated setup examples, not confirmed acoustic readings. Commissioning remains disabled until the physical checks pass. The earlier 200 L / 150 cm geometry is historical and must not be reused. Measure the source tank:
 
-```text
-Branch supply → manual shutoff → NC solenoid → Flow #1 ──┬── Flow #2 → flat outlet
-                                                         │
-                                                         └── controlled leak tap
-```
+- `D_full`: distance from probe face to highest usable water surface.
+- `D_empty`: distance from the same face to the defined zero-usable-volume level.
+- Standoff = `D_full`; usable height = `D_empty − D_full`.
+- Usable capacity = measured volume between those levels.
 
-Other flats connect to separate takeoffs from the shared supply upstream of this branch's manual shutoff. The monitored branch's valve follows `flat_valve_percent`, so a sustained leak normally commands 25% duty, or less if tank restrictions require it. Place the valve **before** the leak tap so closing it stops supply to the leak. Every legitimate outlet inside the measured section must also be accounted for by the downstream meter; an unmetered tap between sensors looks like a leak. Keep tank-refill plumbing separate from this measured section. A real shared master valve plus an independently controlled flat valve requires another designed output/controller and integration; changing the role setting does not add a second channel.
+The linear distance-to-volume calculation assumes a constant cross section. Horizontal cylinders and irregular tanks need a suitable calibration curve; a valid distance is not proof that a linear volume is correct. Test distances at full, intermediate, and empty levels in the actual installation before enabling actuation.
 
-## Probe mounting and tank calibration
+## Firmware settings for this rig
 
-- Use the **JSN-SR04T only**, in its supported trigger/echo mode. The plan refers to Mode 0 and an open R27 pad; PCB revisions differ, so check the exact board's mode-selection documentation before soldering or changing pads.
-- The sealed probe/cable can tolerate water exposure according to the supplied part's rating. The electronics board requires a dry enclosure and protected cable entries; it is not made waterproof by having a sealed transducer.
-- Mount the probe vertically above the water, with at least **25cm from its face to the highest water/overflow level** as the starting geometry. Actual V2/V3 blind zones and installation tolerances vary; increase clearance if the installed version requires it. Firmware validity bounds are 20–600cm, so a plausible reading alone does not prove an installation is outside its blind zone.
-- The plan proposes a 40mm PVC stilling tube with an open lower end and 4–5mm equalization holes. **Validate the acoustic path before adopting that diameter.** A narrow tube, joints, condensation, or the riser can reflect the broad ultrasonic beam. Check reliable readings at full, intermediate, and empty levels with flowing water; enlarge/change the mounting if needed. Keep the tube vented and verify that its water level follows the tank without lag.
-- The default geometry is a constant-cross-section **200L** tank with **150cm usable depth** and a **25cm standoff**. Full distance is 25cm; empty distance is 175cm. Firmware computes `level = clamp((150 - (distance - 25)) / 150 × 100)` and `volume = 200 × level / 100`. A horizontal cylinder or irregular tank needs a calibrated distance-to-volume curve; do not use the linear assumption for such a tank.
-- Flow meters should be in series, upstream and downstream of the branch being monitored. A leak outlet for the demonstration belongs **between the meters**. A meter at tank refill and another at apartment consumption do not form this same monitored branch and cannot be compared directly for leak isolation.
-- Start with 450 pulses/L for each meter, then measure a known collected volume independently for each sensor and update both calibration constants. Low flow, mounting direction, turbine lag, and pressure affect accuracy.
+Copy [config.example.h](../firmware/esp32/include/config.example.h) to the ignored `firmware/esp32/include/config.h`. Set actual credentials and physical values there. Old private configurations receive fallback defaults from [hardware_config.h](../firmware/esp32/include/hardware_config.h); review all settings when reusing one.
 
-### Values to put in the firmware configuration
-
-Copy [`config.example.h`](../firmware/esp32/include/config.example.h) to the ignored `firmware/esp32/include/config.h`, then set the following for the physical rig:
-
-| Setting | How to determine it | Default |
+| Setting | Required choice / measurement | Shipped default |
 | --- | --- | --- |
-| `WATER_VALVE_ROLE` | Select `WATER_VALVE_ROLE_MASTER` or `WATER_VALVE_ROLE_FLAT` for the installed pipe/valve | Master |
-| `WATER_PROBE_STANDOFF_CM` | Probe face to maximum usable/full water surface | 25cm; firmware requires at least 25cm |
-| `WATER_TANK_USABLE_HEIGHT_CM` | Full surface to the defined empty/zero-usable-volume level | 150cm |
-| `WATER_TANK_CAPACITY_L` | Actual volume between those usable full and empty levels | 200L |
-| `WATER_FLOW_IN_PULSES_PER_LITRE` | Upstream pulse count divided by measured collected litres | 450 |
-| `WATER_FLOW_OUT_PULSES_PER_LITRE` | Downstream pulse count divided by measured collected litres | 450 |
+| `WATER_HARDWARE_COMMISSIONED` | Set to 1 only after the physical checklist passes | **0: actuation inhibited** |
+| `WATER_VALVE_ROLE` | `WATER_VALVE_ROLE_TRANSFER` for the single source-to-receiver path | Transfer, value 3; minimum master/flat command |
+| `WATER_RELAY_ACTIVE_HIGH` | Match both physical trigger selectors and the qualified interface | 1; HIGH selectors, LOW off |
+| `WATER_FLOAT_ROLE` | `WATER_FLOAT_ROLE_RECEIVER_FULL` with float in receiver | Receiver full |
+| `WATER_FLOAT_RECOVERY_MS` | Continuous closed/permit time required after float stop | 500 ms |
+| `WATER_TRIGGER_PULSE_US` | Pulse trigger supported by the identified AJ mode | 20 µs |
+| `WATER_SENSOR_MIN_CM` / `WATER_SENSOR_MAX_CM` | Project distance validation bounds | 30 / 300 cm |
+| `WATER_PROBE_STANDOFF_CM` | Actual probe-face-to-full-water distance | 30 cm example; meet the greater physical blind-zone requirement |
+| `WATER_TANK_USABLE_HEIGHT_CM` | Actual `D_empty − D_full`; verify the reported approximation | **20.0 cm: approximate** |
+| `WATER_TANK_CAPACITY_L` | Source usable capacity; check usable fill volume | **2.5 L** |
+| `WATER_RECEIVER_CAPACITY_L` | Receiver capacity; float limit must leave overflow margin | **1.5 L** |
+| `WATER_FLOW_IN_PULSES_PER_LITRE` | Calibrated upstream pulse count per litre | 450 initial estimate |
+| `WATER_FLOW_OUT_PULSES_PER_LITRE` | Calibrated downstream pulse count per litre | 450 initial estimate |
 
-For tank calibration, measure full distance `D_full` and empty distance `D_empty` from the probe face: standoff = `D_full`; usable height = `D_empty − D_full`. The firmware requires `standoff + height ≤ 600cm`. Also set the backend's `TANK_CAPACITY_L` to the same usable capacity; otherwise its reserve/ETA calculations can disagree with the ESP32.
+Set backend `TANK_CAPACITY_L` to the same **2.5 L source** usable capacity and firmware `WATER_RECEIVER_CAPACITY_L` to **1.5 L**, then adjust usable capacity if calibration establishes a smaller working volume. The nominal 10% source reserve is **0.25 L**. Do not enter the sum of both tanks as the ultrasonic tank capacity. Until the approximate 20 cm usable depth and mounting are calibrated and commissioning is confirmed, a source percentage/volume is uncalibrated and must not be treated as a measurement. The optional `WATER_FLOAT_ROLE_SOURCE_LOW` describes a float deliberately installed as source-low protection; selecting it does not leave a receiver-full switch elsewhere in the system. The physical input always requires closed/LOW to permit operation; there is no software bypass for an absent float.
 
-For each flow meter, collect a known volume with the leak tap closed. If counting pulses externally, use `K_new = pulse_count / collected_litres`. If using integrated reported flow, use `K_new = K_old × reported_litres / collected_litres`, where reported litres = `sum(flow_lpm × actual_interval_seconds / 60)`. The stock firmware publishes L/min rather than a cumulative pulse counter. Use several volumes and flow rates within the actual meter's supported range, repeat, and calibrate both meters separately. Rebuild and flash after changing constants. Check balanced flow over complete duty cycles as well as steady flow; low-flow quantization and valve transitions can affect the three-reading leak decision.
+For each flow meter, close the leak tap and collect measured water volumes within its supported 1–30 L/min range. Start at 450 pulses/L from Robu's `f = 7.5 × Q` formula, then calibrate separately: `K_new = counted_pulses / collected_litres`. If using reported flow, `K_new = K_old × reported_litres / collected_litres`, with reported litres integrated over actual elapsed time. Repeat across several volumes/rates. Flow below the listed 1 L/min minimum may be unreliable or fail to turn the turbine; code cannot extend the physical meter rating. The seller also states approximately 2.25 mL/pulse, so neither that approximation nor the initial coefficient replaces calibration. Check balance over complete duty cycles as well as steady flow.
 
-Set Wi-Fi, the broker's reachable LAN address, MQTT credentials/device identity, and NTP server as described in [`firmware/README.md`](../firmware/README.md). Start the backend in its live-hardware configuration so the simulator does not publish competing readings. Networking and a valid clock are needed to open the valve even after all physical wiring is correct.
+Set Wi-Fi, the broker's reachable LAN address, device identity, MQTT credentials, and time synchronization as described in [firmware/README.md](../firmware/README.md). Start the backend in live-hardware mode to prevent simulator readings from competing with the device. Use the portable build/upload procedures in that file or [the Windows guide](https://github.com/TrijalBurman/Water-Rationing-System/blob/windows/docs/windows.md).
 
-## Local protection and operating limits
+## Local stop behavior
 
-Firmware drives the relay inactive at startup and waits for a full valid median window, valid UTC time, and a fresh command before opening. It samples every 120ms and captures echo edges by interrupt. A credible raw level below 10% immediately closes the relay on that sample, without waiting for the five-sample median or a network round trip. This is the measured-level reserve safeguard; an invalid echo cannot establish the actual water level.
+- Before commissioning, before a valid source-level median, or without a live command/valid clock, the actuator stays off.
+- An **open float circuit immediately stops transfer locally**. Normal contact must then remain closed for 500 ms, and a **new command issued more than two seconds after recovery** is required before reopening (the margin covers allowed clock skew). Closing the float alone does not replay the previous opening command. This continues independently of network work.
+- The first credible raw source-level reading below 10% closes the valve without waiting for the median or backend. Reopening requires the source-level safeguards and live command to permit it.
+- Invalid echo resets the median window, retains the last trusted level, and caps an otherwise permitted command at 30%; a previous reserve stop remains effective. A sensor that never established a trusted level cannot open the valve. The fault cap cannot prove that the source still contains reserve water.
+- A 30-second duty period implements partial commands: 25% means 7.5 seconds energized per period, not a guaranteed 25% water flow. Verify suitability for coil heating, pressure changes, and water hammer. Do not assume arbitrary fast cycling is safe.
+- Commands expire at their UTC expiry or after 10 seconds without replacement, whichever occurs first. Stale/replayed commands are rejected. Loss of communication can therefore leave the current permitted command active only within that bound; local float/reserve closure still takes priority.
 
-On an invalid echo, the firmware marks `sensor_status=fault`, starts a new median window, retains the last trusted level, and caps a live command at 30%. An existing reserve lock continues to close the valve, and a device that has never obtained a valid level stays closed. A broken level sensor therefore cannot provide reliable reserve measurements: the 30% cap is the plan's fallback, not proof that 10% reserve remains.
+No software test verifies an unplugged hose, a mechanically stuck valve, a shorted float cable, inadequate pressure, or an overheating coil. The receiver float is an input to firmware rather than an independently wired safety controller.
 
-The duty window is 30 seconds. A 25% command means 7.5 seconds energized per window; it does not promise 25% hydraulic flow. An operator must establish that the relay/solenoid can tolerate the switching pattern without water hammer or overheating. Commands expire after their UTC expiry or a 10-second local timeout. Replayed commands and commands from before the current MQTT connection are rejected.
+## Physical commissioning checklist
 
-There is no wired pump-control output in this project. The backend's critical state can close the configured valve; it cannot stop an externally wired pump. Any pump needs separately engineered dry-run protection and a rated control interface.
+Keep `WATER_HARDWARE_COMMISSIONED=0` for all initial dry checks. The software build passing is not a substitute for these measurements.
 
-## Benchtop checklist
+1. **Unpowered inspection:** confirm source/receiver designation, labels, polarity, grounds, valve COM/NO wiring, unused contact insulation, correctly fitted fuse, and diode orientation. With disconnected electronics, each example divider measures nominally 3 kΩ from signal to ground and 2 kΩ from midpoint to ground. There must be no wire shorting switched positive directly to negative.
+2. **Logic power and interfaces:** verify accessory 5 V, ESP32 3.3 V, actual pulse peaks/high/low levels, and relay input current/backfeed. Leave valve power disconnected. Test both relay channels through reset, flashing, USB loss, and accessory-power sequencing: both must remain off until permitted. Check the power bank does not time out.
+3. **Float:** confirm continuity below full and opening at full. Check the displayed stop state with a raised float and an unplugged cable. Verify recovery requires continuous closed contact for 500 ms and a new command. Recheck installed orientation; do not rely on an NC label alone.
+4. **Ultrasonic:** identify the AJ mode/revision, then compare distances with a ruler at the minimum clearance, middle, and actual empty distance. Check no-echo and out-of-range faults. Repeat with the actual tank/mounting and representative surface movement. Enter measured source geometry/capacity and rebuild.
+5. **Valve supply and hydraulics:** establish a suitable 12 V supply, current protection, suppression, and pressure-compatible valve arrangement. With the water controlled and overflow contained, test energized opening and de-energized/power-loss closure. Measure current/temperature and verify flow in the correct direction. An audible relay click does not establish safe valve operation, and the 9 V batteries are not a substitute for the required supply.
+6. **Enable deliberately:** after the preceding checks pass, set commissioning to 1, rebuild/flash, and issue fresh commands. Verify receiver-full and unplugged-float stops close the valve; clear them and confirm an old command cannot reopen it. Test source reserve closure with the actual calibrated geometry, including during Wi-Fi/broker outages.
+7. **Calibrate and demonstrate leakage:** collect known volumes through each meter, calibrate, then introduce a controlled leak **between** them. The backend's difference threshold is `max(0.3 L/min, 15% of upstream flow)` for three consecutive readings. In transfer role the smaller master/flat restriction controls the single valve. Low flows and valve transitions need physical validation; a one-pulse difference in a one-second window at 450 pulses/L is about 0.133 L/min.
+8. **Failure and recovery:** stop backend commands and verify closure within 10 seconds or the shorter expiry. Test stale retained commands, device reboot, float disconnection, sensor fault, accessory loss, ESP32 power loss, and valve supply loss separately. Confirm recovery only when all applicable local conditions and a new valid command permit it. Recheck overflow containment and manual shutoff before any unattended use.
 
-Complete these checks with the actual hardware. The software test suite does not perform them.
+## Verification status
 
-1. **Power off:** inspect all connections, diode orientation, fuse rating, relay COM/NO selection, and absence of a switched-positive-to-ground short. With modules disconnected, confirm each divider is 3kΩ input-to-ground and 2kΩ node-to-ground. Connected electronics can change resistance measurements.
-2. **Logic only:** measure the 5V and 3.3V rails and divider peak voltages. Verify no GPIO exceeds its board's limits. Confirm relay inactive with reset held, during flashing, and when ESP32 power is removed but relay supply remains on.
-3. **Probe:** compare measured distances against a ruler at 25cm or the device's greater required minimum, intermediate positions, and tank-empty distance. Check no-echo and out-of-range faults. Repeat through the actual riser/stilling tube with condensation and turbulence representative of use.
-4. **Valve power:** with fluid operation safe, apply a fresh command for the selected role and verify current, coil heating, energized flow, and power-loss closure. Some valves need water pressure to operate; do not assume audible clicking proves shutoff. Check 25%, 30%, and 100% duty timing.
-5. **Reserve:** establish a level above reserve, then present a below-10% distance (greater than 160cm with default geometry). Verify immediate closure. Repeat with Wi-Fi disconnected and while broker connection attempts fail. Confirm a fault after a low-level reading cannot reopen the valve.
-6. **Communication:** verify NTP synchronization, matching device/topic ACLs, and fresh telemetry. Stop backend commands and confirm closure within 10 seconds or the shorter command expiry. Reboot with a retained old command and verify it does not open. Test incorrect device ID, expired command, duplicate ID, and invalid percentage rejection.
-7. **Flow:** run known volumes through each meter and calibrate. Establish balanced branch flow, then introduce a controlled leak between sensors. A difference greater than `max(0.3 L/min, 15% of upstream flow)` must persist for three consecutive readings: the backend reports two suspected readings, then confirmed leakage on the third. A flat-role relay applies up to 25% duty (less when tank restrictions require); a master-role relay follows the tank command. At the default 450 pulses/L and 1-second telemetry window, a one-pulse difference is about 0.133 L/min, so small-flow or transient comparisons need physical validation.
-8. **Recovery:** restore balanced flow and adequate level, check updated commands and telemetry, and confirm recovery. Repeat loss of sensor, Wi-Fi, broker, backend, and power individually before unattended operation.
+**No bench electrical, acoustic, relay, battery-load, or wet hydraulic measurements have been performed in this workspace.** The supplied photographs and seller pages identify parts; they do not establish a commissioned installation. Current software checks and compilation results belong in [firmware/BUILD_STATUS.md](../firmware/BUILD_STATUS.md).
 
-## Verification status and references
-
-The native C++ safety tests were run during implementation and passed. They cover geometry, median filtering, reserve priority, sensor fault limiting, expiry, duty phase, timer rollover, UTC timestamps, and replay rejection. ESP32 build status is recorded in `firmware/BUILD_STATUS.md`. **No physical ESP32, electrical measurements, relay tests, acoustic tests, or wet hydraulic tests have been performed in this workspace.**
-
-Primary hardware references checked for this guide:
-
-- [Espressif ESP32 Series datasheet](https://documentation.espressif.com/esp32_datasheet_en.html): electrical input limits and GPIO restrictions. These apply to the classic ESP32 used by this firmware.
-- [Espressif ESP32 GPIO guide](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/peripherals/gpio.html): GPIO 34 is input-only and has no internal pull-up/down.
-- [Espressif ESP32-DevKitC V4 user guide](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32/esp32-devkitc/user_guide.html): header labels and mutually exclusive board power options; check the actual carrier board if it differs.
-- [Vishay 1N4001–1N4007 datasheet](https://www.vishay.com/docs/88503/1n4001.pdf): stripe denotes cathode; the stated 1A average rating has temperature and mounting conditions, so it is not automatic approval for an unspecified coil.
-
-No exact manufacturer, PCB revision, relay schematic, valve part number, or supplier datasheet is recorded for the purchased JSN-SR04T/YF-S201/relay/solenoid. Their supply, trigger threshold, pulse-output circuit, blind zone, IP rating, and hydraulic/coil ratings therefore remain **variant-specific checks**, not verified specifications of the hardware in hand. The 25cm standoff and 450 pulses/L are repository defaults requiring commissioning.
-
-Firmware API references: [PlatformIO Espressif32](https://docs.platformio.org/en/latest/platforms/espressif32.html), [PubSubClient API](https://pubsubclient.knolleary.net/api), and [ArduinoJson 6 deserialization](https://arduinojson.org/v6/api/json/deserializejson/).
+Further primary references: [ESP32 Series datasheet](https://documentation.espressif.com/esp32_datasheet_en.html), [DevKitC V4 power guidance](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32/esp32-devkitc/user_guide.html), and [Vishay 1N4001–1N4007 datasheet](https://www.vishay.com/docs/88503/1n4001.pdf). Use the actual delivered module's documentation where generic seller claims or PCB revisions differ.

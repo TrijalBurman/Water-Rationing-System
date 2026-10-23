@@ -17,6 +17,7 @@ from backend.storage import Recorder
 def settings(tmp_path):
     return Settings(
         _env_file=None,
+        tank_capacity_l=200,  # Historical controller fixtures explicitly exercise a 200L tank.
         data_dir=tmp_path,
         mqtt_host="",
         influx_url="",
@@ -29,7 +30,7 @@ def settings(tmp_path):
 def make_command(reading):
     now = datetime.now(UTC)
     return Command(
-        **Controller().decide(reading).model_dump(),
+        **Controller(capacity_l=200).decide(reading).model_dump(),
         device_id=reading.device_id,
         command_id="test-command",
         issued_at=now,
@@ -40,7 +41,7 @@ def make_command(reading):
 def snapshot(reading):
     return {
         "telemetry": reading.model_dump(mode="json"),
-        "decision": Controller().decide(reading).model_dump(mode="json"),
+        "decision": Controller(capacity_l=200).decide(reading).model_dump(mode="json"),
         "source": "hardware",
     }
 
@@ -156,7 +157,9 @@ def test_influx_failed_write_keeps_outbox_for_identical_retry(settings, tmp_path
     influx.client = Mock()
     try:
         reading = frame()
-        recorder.save(reading, Controller().decide(reading), datetime.now(UTC), "hardware")
+        recorder.save(
+            reading, Controller(capacity_l=200).decide(reading), datetime.now(UTC), "hardware"
+        )
         influx.writer.write.side_effect = [OSError("temporarily unavailable"), None]
         with pytest.raises(OSError, match="temporarily unavailable"):
             influx._flush()
@@ -183,13 +186,18 @@ def test_outbox_ack_after_reset_does_not_skip_new_telemetry(settings, tmp_path, 
     influx.client = Mock()
     try:
         first = frame()
-        recorder.save(first, Controller().decide(first), datetime.now(UTC), "demo")
+        recorder.save(first, Controller(capacity_l=200).decide(first), datetime.now(UTC), "demo")
         old_id = recorder.pending()[0][0]
         replacement = frame()
 
         def reset_during_write(**kwargs):
             recorder.reset("tank-01")
-            recorder.save(replacement, Controller().decide(replacement), datetime.now(UTC), "demo")
+            recorder.save(
+                replacement,
+                Controller(capacity_l=200).decide(replacement),
+                datetime.now(UTC),
+                "demo",
+            )
 
         influx.writer.write.side_effect = reset_during_write
         influx._flush()

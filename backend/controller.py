@@ -18,7 +18,7 @@ class DeviceState:
 
 
 class Controller:
-    def __init__(self, capacity_l: float = 200, reset_gap_seconds: float = 6):
+    def __init__(self, capacity_l: float = 2.5, reset_gap_seconds: float = 6):
         self.capacity_l = capacity_l
         self.reset_gap_seconds = reset_gap_seconds
         self.states: dict[str, DeviceState] = {}
@@ -42,12 +42,21 @@ class Controller:
         usable_volume = min(telemetry.volume_l, telemetry.level_percent * self.capacity_l / 100)
         reserve = self.capacity_l * 0.10
         available = max(0, usable_volume - reserve)
+        calibration_required = (
+            telemetry.hardware_profile == "two_tank_transfer"
+            and telemetry.local_stop_reason == "setup_required"
+        )
         fault = (
-            telemetry.sensor_status == "fault"
+            calibration_required
+            or telemetry.sensor_status == "fault"
             or telemetry.ultrasonic_distance_cm is None
             or not 20 <= telemetry.ultrasonic_distance_cm <= 600
         )
-        critical = telemetry.level_percent < 10 or usable_volume < reserve
+        # Placeholder geometry must not turn an uncalibrated zero into a claim
+        # that the source is empty. The local commissioning gate still stops it.
+        critical = not calibration_required and (
+            telemetry.level_percent < 10 or usable_volume < reserve
+        )
         eta = available / predicted if predicted > 1e-6 else None
         if fault:
             eta = None
@@ -65,10 +74,14 @@ class Controller:
 
         if critical:
             tank_mode, master, priority = "CRITICAL", 0, 100
-            reason = "Protected reserve reached. All valves are closed."
+            reason = (
+                "Protected source reserve reached. Transfer is stopped."
+                if telemetry.hardware_profile == "two_tank_transfer"
+                else "Protected reserve reached. All valves are closed."
+            )
         elif fault:
             tank_mode, master, priority = "SENSOR_FAULT", 30, 90
-            reason = "JSN-SR04T reading is invalid. Flow is capped at 30%."
+            reason = "Ultrasonic level reading is invalid. Flow is capped at 30%."
         elif telemetry.level_percent < 25 or (eta is not None and eta < 60):
             tank_mode, master, priority = "RATIONING", max(20, telemetry.level_percent), 70
             reason = "Water is rationed to preserve the reserve."
@@ -91,6 +104,29 @@ class Controller:
                 mode, priority = "LEAK_ALERT", 60
         elif state.leak_cycles:
             reason += f" Branch imbalance observed ({state.leak_cycles}/3 readings); checking persistence."
+
+        if telemetry.hardware_profile == "two_tank_transfer" and not telemetry.transfer_permitted:
+            float_stop = (
+                "Receiver is full or the float circuit is disconnected."
+                if telemetry.float_switch_role == "receiver_full"
+                else "Source low-level float requests a stop or its circuit is disconnected."
+            )
+            local_reason = {
+                "setup_required": "Hardware commissioning is incomplete; source tank geometry is uncalibrated. Complete calibration, wiring, and supply checks before enabling transfer.",
+                "float_stop": float_stop,
+                "float_recovering": "Float circuit is recovering; waiting for a stable permitted state.",
+                "clock_unsynced": "The device clock is not synchronized; command expiry cannot yet be verified.",
+            }[telemetry.local_stop_reason]
+            master = flat = 0
+            if critical:
+                reason = "Protected source reserve reached. Transfer is stopped. " + local_reason
+            else:
+                mode, priority = "TRANSFER_STOPPED", 95
+                reason = "Transfer is stopped. " + local_reason
+            if leak:
+                reason += " Sustained pipe flow imbalance remains detected."
+            elif state.leak_cycles:
+                reason += f" Pipe imbalance observed ({state.leak_cycles}/3 readings); checking persistence."
 
         return Decision(
             mode=mode,
