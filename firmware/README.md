@@ -24,15 +24,14 @@ The existing Bash wrapper keeps its Linux/macOS behavior. The portable `esp32/bu
 
 Use a fresh Windows checkout and Python 3.12 (64-bit); Linux virtual environments and downloaded toolchains must be recreated on Windows. The commands below run in PowerShell from the repository root. A native Windows installation needs no Bash or WSL. [PlatformIO documents Python installation and Windows PATH setup here](https://docs.platformio.org/en/latest/faq/install-python.html).
 
-Create the root virtual environment if the general Windows setup has not already created it, then install the pinned firmware tool:
+Create a separate firmware environment and install the pinned tool there. PlatformIO requires different versions of some Python packages than the backend lockfile, so keep its dependencies in this dedicated environment:
 
 ```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install platformio==6.1.18
+py -3.12 -m venv firmware/esp32/.venv
+.\firmware\esp32\.venv\Scripts\python.exe -m pip install platformio==6.1.18
 
 # Compile the example without credentials or an attached board.
-.\.venv\Scripts\python.exe .\firmware\esp32\build.py
+py -3.12 .\firmware\esp32\build.py
 ```
 
 For real hardware, copy the example and edit `firmware\esp32\include\config.h` with the values described above before uploading:
@@ -47,15 +46,15 @@ Replace `COM3` with the board's port in **Device Manager > Ports (COM & LPT)**; 
 The PowerShell build wrapper forwards arguments and returns the build/upload exit code. If local PowerShell policy blocks `.ps1` files, use the same Python entry point directly:
 
 ```powershell
-.\.venv\Scripts\python.exe .\firmware\esp32\build.py --target upload --upload-port COM3
+py -3.12 .\firmware\esp32\build.py --target upload --upload-port COM3
 ```
 
 To list ports or monitor the firmware at 115200 baud with the same local PlatformIO directory:
 
 ```powershell
 $env:PLATFORMIO_CORE_DIR = Join-Path (Get-Location).Path "firmware\esp32\.platformio"
-.\.venv\Scripts\python.exe -m platformio device list
-.\.venv\Scripts\python.exe -m platformio device monitor --port COM3 --baud 115200
+.\firmware\esp32\.venv\Scripts\python.exe -m platformio device list
+.\firmware\esp32\.venv\Scripts\python.exe -m platformio device monitor --port COM3 --baud 115200
 ```
 
 Exit the monitor with Ctrl+C before another upload. Use the Windows PC's reachable LAN IP as the MQTT host on the ESP32; `localhost` refers to the ESP32 itself. Start the broker with its LAN binding enabled and allow its configured listener through Windows Firewall for the intended private network, as described in the main Windows guide.
@@ -115,14 +114,14 @@ On Windows, install **Build Tools for Visual Studio** with the **Desktop develop
 ```powershell
 .\firmware\esp32\test-native.ps1
 # Equivalent when .ps1 execution is blocked:
-.\.venv\Scripts\python.exe .\firmware\esp32\test_native.py
+py -3.12 .\firmware\esp32\test_native.py
 ```
 
 Alternatively, install MinGW-w64 GCC or Clang with its matching native Windows runtime and put its tools on PATH. Select the compiler explicitly when several are installed; compiler paths containing spaces work without extra shell quoting inside the value:
 
 ```powershell
 .\firmware\esp32\test-native.ps1 --cxx g++
-.\.venv\Scripts\python.exe .\firmware\esp32\test_native.py --cxx "C:\Program Files\LLVM\bin\clang++.exe"
+py -3.12 .\firmware\esp32\test_native.py --cxx "C:\Program Files\LLVM\bin\clang++.exe"
 ```
 
 `CXX` can also select a compiler executable (without extra compiler flags). The native runner creates `.build\control_logic_test.exe` on Windows and executes it. GCC/Clang compile in strict C++11 mode with warnings as errors; MSVC uses `/std:c++14`, its oldest supported C++ mode, with `/W4 /WX`. Native logic tests do not require PlatformIO, an ESP32, Wi-Fi credentials, or a running broker. An ESP32 cross-compiler cannot replace a host compiler for this suite.

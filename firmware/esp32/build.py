@@ -64,10 +64,9 @@ def platformio_command(env):
         if executable:
             return [str(Path(executable).absolute())]
     raise RuntimeError(
-        "PlatformIO is not installed. From the repository root, install it with "
-        r".\.venv\Scripts\python.exe -m pip install platformio==6.1.18 on Windows, "
-        "or .venv/bin/python -m pip install platformio==6.1.18 on Linux/macOS. "
-        "See firmware/README.md for virtual-environment setup."
+        "PlatformIO is not installed. Create firmware/esp32/.venv and install "
+        "platformio==6.1.18 in that dedicated environment. "
+        "See firmware/README.md for platform-specific commands."
     )
 
 
