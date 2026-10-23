@@ -110,6 +110,12 @@ If the single 100 nF capacitor is used as an input filter, connect it **between 
 
 The default 5 V ultrasonic and flow signals require **three separate verified 3.3 V interfaces**. The Robu flow listing does not establish whether the delivered yellow output is actively driven or open collector with a 5 V pull-up. Treat it as potentially 5 V until its circuit/waveform is checked.
 
+The flow-sensor drawing below shows one divider for a **verified driven 0–5 V pulse output**. Build a separate copy for each flow sensor: GPIO 27 for the upstream meter and GPIO 32 for the downstream meter. Sensor black, ESP32 GND, and regulated 5 V supply negative share ground. The signal junctions must remain separate.
+
+![Flow sensor yellow-wire divider to ESP32](diagrams/flow-sensor-yellow-wire.png)
+
+[Open the editable/vector circuit diagram](diagrams/flow-sensor-yellow-wire.svg).
+
 For a suitable actively driven 5 V pulse output, the existing 1 kΩ type can make a divider if **nine pieces** are available in total:
 
 ```text
