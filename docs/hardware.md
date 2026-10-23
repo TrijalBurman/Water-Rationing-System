@@ -165,6 +165,12 @@ Select the actual fuse from measured coil current/inrush, wire/connector ampacit
 
 ## AJ-SR04M mode, mounting, and calibration
 
+For a **verified 0–5 V ECHO pulse**, use this dedicated divider to **GPIO 34**. All three resistors must be confirmed 1 kΩ; their five-band ±1% code is brown–black–black–brown–brown. The two lower resistors are in series to common ground. Do not join the ECHO signal junction to either flow-sensor signal junction. This drawing covers the ECHO interface; TRIG/RX is a separate circuit whose voltage requirements still need checking.
+
+![AJ-SR04M ECHO divider to ESP32 GPIO 34](diagrams/aj-sr04m-echo-divider.png)
+
+[Open the editable/vector ECHO circuit diagram](diagrams/aj-sr04m-echo-divider.svg).
+
 The supplied photo says **AJ-SR04M**, so the project uses that identity. It must operate in **trigger/echo pulse-width mode**, not automatic UART distance output. In the original AJ-SR04M manual this is the mode with **R19 open**. PCB revisions differ: inspect the reverse side and the documentation for the delivered version before altering pads/resistors. Do not solder, bridge, or remove a component based only on the front photograph. [Original AJ-SR04M manual](https://altronics.cl/uploads/manual-aj-sr04m.pdf); see [the project's sensor research notes](aj-sr04m-research-notes.md) for revision differences.
 
 The firmware sends a **20 µs trigger every 120 ms**, captures echo edges without a long blocking measurement, and uses a median of five valid samples. Its conservative accepted range is **30–300 cm**; this is the project's operating envelope, not a universal rating for every AJ-SR04M variant. An echo outside that range is a fault.
