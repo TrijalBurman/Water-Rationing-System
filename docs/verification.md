@@ -2,6 +2,14 @@
 
 The local demo uses the same controller, recorder, API, and portal as the hardware deployment. Results below distinguish the Windows compatibility work from the earlier implementation checks.
 
+## Actual components update — 23 October 2026
+
+The two-tank hardware changes use the supplied 2.5 L source, 1.5 L receiver, approximately 20 cm source depth, AJ-SR04M, two YF-S201 meters, a P35 float, and one installed valve. Actuation remains inhibited until commissioning is declared. See [hardware.md](hardware.md) for the verified inventory, wiring, and missing power/pressure/interface requirements.
+
+Local verification passed: **126 backend/portability tests**, with one native Windows ACL check skipped on Linux; native C++ safety tests; all 17 existing browser smoke checks and 14 interface/accessibility checks; and a new end-to-end two-tank API/UI check covering setup masking, receiver full/disconnected stop, recovery, metadata history, responsive layout and three accessibility scans with zero violations. Existing eight accessibility scans also had zero violations. ESP32 compile checks cover inhibited defaults, commissioned HIGH-trigger receiver cutoff, and commissioned LOW-trigger source-low/TLS alternatives. Current changes still require a fresh Windows/Linux CI run; older green runs below describe their stated commits only.
+
+The simulator scales synthetic non-leak flows with tank capacity. These are demonstration inputs, frequently below the YF-S201's rated physical range on a small tank. The leak scenario keeps an absolute detectable imbalance, so the 2.5 L source correctly reports source rationing alongside a confirmed pipe leak. Tests check both states rather than forcing a normal source state.
+
 ## Windows compatibility update — 23 October 2026
 
 The `windows` branch adds native setup/demo/bootstrap entry points, portable browser and firmware wrappers, Windows timezone data, line-ending rules, and Windows instructions. A Linux virtual environment must be recreated on Windows. Documentation and command examples are in the [Windows guide](windows.md).

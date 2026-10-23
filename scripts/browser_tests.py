@@ -120,6 +120,7 @@ def run_checks():
                         time.sleep(0.2)
                 run_command([node, ROOT / "tests/browser-smoke.cjs"], env)
                 run_command([node, ROOT / "tests/frontend-audit.cjs"], env)
+                run_command([node, ROOT / "tests/two-tank-ui.cjs"], env)
             finally:
                 server.terminate()
                 try:

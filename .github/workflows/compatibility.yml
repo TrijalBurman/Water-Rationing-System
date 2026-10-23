@@ -80,6 +80,7 @@ jobs:
             WaterWise Project/.runtime/browser/server.log
             WaterWise Project/.runtime/browser/results.json
             WaterWise Project/.runtime/browser/screenshots/
+            WaterWise Project/.runtime/browser/two-tank/
             WaterWise Project/.runtime/dark-review/
           if-no-files-found: ignore
 
@@ -114,6 +115,27 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./firmware/esp32/build.ps1
+      - name: Compile commissioned relay and float configurations
+        shell: python
+        run: |
+          import subprocess
+          import sys
+          from pathlib import Path
+          target = Path('firmware/esp32/include/config.h')
+          assert not target.exists(), 'Do not overwrite a private hardware configuration'
+          example = Path('firmware/esp32/include/config.example.h').read_text()
+          try:
+              for high, tls, role in [(1, 0, 'RECEIVER_FULL'), (0, 1, 'SOURCE_LOW')]:
+                  config = example.replace('WATER_HARDWARE_COMMISSIONED 0', 'WATER_HARDWARE_COMMISSIONED 1')
+                  config = config.replace('WATER_WIFI_SSID "CHANGE_ME"', 'WATER_WIFI_SSID "BUILD_CHECK_ONLY"')
+                  config = config.replace('WATER_MQTT_PASSWORD "CHANGE_ME"', 'WATER_MQTT_PASSWORD "BUILD_CHECK_ONLY"')
+                  config = config.replace('WATER_RELAY_ACTIVE_HIGH 1', f'WATER_RELAY_ACTIVE_HIGH {high}')
+                  config = config.replace('WATER_MQTT_TLS 0', f'WATER_MQTT_TLS {tls}')
+                  config = config.replace('WATER_FLOAT_ROLE WATER_FLOAT_ROLE_RECEIVER_FULL', f'WATER_FLOAT_ROLE WATER_FLOAT_ROLE_{role}')
+                  target.write_text(config)
+                  subprocess.run([sys.executable, 'firmware/esp32/build.py'], check=True)
+          finally:
+              target.unlink(missing_ok=True)
 
   deployment:
     name: Docker full stack
@@ -135,6 +157,8 @@ jobs:
         run: |
           import json
           import time
+          from datetime import datetime, timezone
+          import urllib.parse
           import urllib.request
           from pathlib import Path
           values = dict(line.split('=', 1) for line in Path('.env').read_text().splitlines()
@@ -150,14 +174,40 @@ jobs:
           request('/api/demo', {'action': 'scenario', 'scenario': 'leak'})
           for _ in range(30):
               latest = request('/devices/tank-01/latest')
-              if latest['decision']['mode'] == 'LEAK_ALERT':
+              if latest['decision']['flat_status'] == 'LEAK_ALERT':
                   break
               time.sleep(1)
-          assert latest['decision']['mode'] == 'LEAK_ALERT', latest
+          assert latest['decision']['flat_status'] == 'LEAK_ALERT', latest
           assert latest['decision']['flat_valve_percent'] == 25, latest
+          stopped = request('/telemetry', {
+              'device_id': 'transfer-rig', 'flat_id': '101',
+              'timestamp': datetime.now(timezone.utc).isoformat(),
+              'level_percent': 80, 'volume_l': 2, 'flow_lpm': 0, 'flow_out_lpm': 0,
+              'ultrasonic_distance_cm': 34, 'sensor_status': 'ok', 'valve_percent': 0,
+              'hardware_profile': 'two_tank_transfer', 'level_sensor_model': 'AJ-SR04M',
+              'receiver_capacity_l': 1.5, 'float_switch_role': 'receiver_full',
+              'float_switch_state': 'stop_or_disconnected', 'transfer_permitted': False,
+              'local_stop_reason': 'float_stop', 'relay_energized': False,
+              'requested_valve_percent': 0,
+          })
+          assert stopped['mode'] == 'TRANSFER_STOPPED', stopped
+          assert stopped['master_valve_percent'] == stopped['flat_valve_percent'] == 0
+          for _ in range(20):
+              if request('/health')['influx_pending'] == 0:
+                  break
+              time.sleep(1)
+          bucket = json.dumps(values.get('INFLUX_BUCKET', 'water_telemetry'))
+          query = f'from(bucket: {bucket}) |> range(start: -5m) |> filter(fn: (r) => r.device_id == "transfer-rig")'
+          req = urllib.request.Request('http://127.0.0.1:8086/api/v2/query?org=' + urllib.parse.quote(values.get('INFLUX_ORG', 'waterwise')),
+              data=json.dumps({'query': query}).encode(), headers={
+                  'Authorization': 'Token ' + values['INFLUX_TOKEN'],
+                  'Content-Type': 'application/json', 'Accept': 'application/csv'})
+          with urllib.request.urlopen(req, timeout=15) as response:
+              recorded = response.read().decode()
+          assert 'float_stop' in recorded and 'transfer_permitted' in recorded and 'receiver_capacity_l' in recorded
           with urllib.request.urlopen('http://127.0.0.1:3000/api/health', timeout=10) as response:
               assert json.load(response)['database'] == 'ok'
-          print('MQTT, InfluxDB, Grafana, telemetry and leak decisions verified.')
+          print('MQTT, InfluxDB, Grafana, telemetry, leak decisions and recorded receiver float stop verified.')
       - name: Service status on failure
         if: failure()
         run: docker compose ps
