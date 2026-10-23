@@ -72,6 +72,8 @@ The Docker OS check must print `linux`; `docker version` must include a server s
 
 Bootstrap generates `.env`, `.secrets\tank-01.env`, and `.secrets\mosquitto.passwd`; it preserves existing credentials on subsequent runs. Keep these secrets out of Git and retrieve passwords from them locally. First image downloads/builds take time. Follow the [deployment guide](deployment.md) for service credentials, persistent volumes, and live hardware.
 
+Keep this checkout on an NTFS volume so bootstrap can apply private Windows file permissions to the generated credentials.
+
 | Service | Default address |
 | --- | --- |
 | Portal | <http://localhost:8000> |

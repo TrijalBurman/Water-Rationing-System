@@ -8,14 +8,18 @@ The `windows` branch adds native setup/demo/bootstrap entry points, portable bro
 
 | Area | Verification status |
 | --- | --- |
-| Windows backend and lint, Python 3.12/3.14 | GitHub Actions configured; result pending |
-| Windows Chromium smoke and accessibility checks | GitHub Actions configured; result pending |
-| Windows native firmware safety tests and ESP32 PlatformIO build | GitHub Actions configured; result pending |
-| Linux backend/lint, browser, native firmware, and ESP32 build | Compatibility regression checks configured in GitHub Actions; result pending |
-| Real full-stack Docker integration | Linux GitHub Actions integration configured; result pending |
+| Windows backend and lint, Python 3.12/3.14 | **Passed: 80 tests on each version**, Ruff lint/format, PowerShell and CMD launchers; checkout path includes spaces |
+| Windows Chromium smoke and accessibility checks | **Passed: 17 smoke checks, 14 interface/keyboard checks**, eight desktop/mobile accessibility scans with zero violations |
+| Windows native firmware safety tests and ESP32 PlatformIO build | **Passed** through the PowerShell wrappers: MSVC safety suite and PlatformIO 6.1.18 ESP32 example compile |
+| Linux backend/lint, browser, native firmware, and ESP32 build | **Passed** on Python 3.12/3.14: 79 tests plus one Windows-only ACL test skipped; browser, GCC safety suite, and ESP32 compile passed |
+| Real full-stack Docker integration | **Passed** on Linux: all four containers healthy, authenticated MQTT/InfluxDB readiness, live demo ingestion and leak restriction, Grafana health |
 | Docker Desktop, USB upload, and wet hardware on a physical Windows computer | Not verified in this Linux workspace |
 
-Configured CI is not a passing result. Update this table with the actual run/result after CI completes. Linux-host checks do not establish that Docker Desktop networking or physical USB/hardware behavior has passed on Windows.
+All seven jobs passed in [GitHub Actions run 39979578873](https://github.com/TrijalBurman/Water-Rationing-System/actions/runs/39979578873), testing code commit `2b8c174` on 23 October 2026. The Windows runner used Windows Server 2025; Python 3.12 and 3.14 were installed independently from fresh checkouts. The native permission test verifies owner-only access even when PowerShell module lookup is unavailable. Another regression starts quota storage with system timezone lookup disabled, proving the packaged timezone data works.
+
+Local Linux validation also passed: native setup, two credential-bootstrap runs, isolated browser checks, GCC safety tests (including source/compiler paths with spaces), and the ESP32 example build. Browser checks own a temporary database and do not reset existing demo history. Secrets, databases, downloaded tools, and caches remain excluded from Git.
+
+The Docker job checks service startup and API integration; it does not establish every provisioned Grafana panel's Flux/rendering behavior. Linux container checks and hosted Windows tests do not establish Docker Desktop networking or physical USB/hardware behavior on a personal Windows computer. Complete the hardware commissioning checklist before operating valves.
 
 ## Historical implementation verification — 27 September 2026
 
